@@ -5,20 +5,50 @@ export class OrdersWebSocketClient {
   private isConnected = false;
 
   constructor(
-    private serverUrl: string = process.env.NEXT_PUBLIC_WEBSOCKET_URL ||
-      "http://localhost:3006"
+    private serverUrl: string = process.env.NEXT_PUBLIC_API_URL || ""
   ) {}
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.socket = io(`${this.serverUrl}/orders`, {
+      // Derive origin and socket path from serverUrl
+      let origin = this.serverUrl;
+      let socketPath = "/socket.io";
+      try {
+        const parsed = new URL(this.serverUrl);
+        origin = `${parsed.protocol}//${parsed.host}`;
+        const basePath = parsed.pathname.replace(/\/$/, "");
+        socketPath = `${basePath || ""}/socket.io` || "/socket.io";
+      } catch (e) {
+        console.warn(
+          "⚠️ Некорректный NEXT_PUBLIC_API_URL, используем как есть:",
+          this.serverUrl
+        );
+      }
+
+      const namespace = "/orders";
+      const namespaceUrl = `${origin}${namespace}`;
+
+      console.log("🔌 Попытка подключения к WebSocket (origin):", origin);
+      console.log("🔌 Socket.IO path:", socketPath);
+      console.log("🔌 Namespace:", namespace);
+      console.log("🔌 Полный URL для namespace:", namespaceUrl);
+
+      this.socket = io(namespaceUrl, {
         transports: ["websocket"],
+        path: socketPath,
         timeout: 20000,
+        forceNew: true,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
       });
 
       this.socket.on("connect", () => {
         this.isConnected = true;
         console.log("✅ Подключен к серверу заказов");
+        console.log("🔗 Socket ID:", this.socket?.id);
+
+        console.log("🔗 Transport:", this.socket?.io.engine.transport.name);
 
         // Автоматически запрашиваем список заказов при подключении
         this.socket?.emit("get_orders");
@@ -33,18 +63,54 @@ export class OrdersWebSocketClient {
       });
 
       this.socket.on("connect_error", (error) => {
-        console.error("❌ Ошибка подключения к серверу заказов:", error);
+        console.error("❌ ===== ОШИБКА ПОДКЛЮЧЕНИЯ =====");
+        console.error(
+          "❌ Тип ошибки:",
+          "type" in error ? (error as any).type : "неизвестно"
+        );
+        console.error("❌ Сообщение:", (error as Error).message);
+        console.error(
+          "❌ Описание:",
+          "description" in error ? (error as any).description : "нет описания"
+        );
+        console.error(
+          "❌ Контекст:",
+          "context" in error ? (error as any).context : "нет контекста"
+        );
+        console.error("❌ Полная ошибка:", error);
+        console.error("❌ URL (origin):", origin);
+        console.error("❌ Socket.IO path:", socketPath);
+        console.error("❌ Namespace URL:", namespaceUrl);
+        console.error("❌ ===== КОНЕЦ ОШИБКИ =====");
         reject(error);
       });
 
       this.socket.on("disconnect", (reason) => {
         this.isConnected = false;
-        console.log("❌ Отключен от сервера заказов. Причина:", reason);
+        console.log("❌ ===== ОТКЛЮЧЕНИЕ =====");
+        console.log("❌ Причина:", reason);
+        console.log("❌ ===== КОНЕЦ ОТКЛЮЧЕНИЯ =====");
       });
 
       // Обработчик ошибок WebSocket
       this.socket.on("error", (error) => {
-        console.error("❌ Ошибка WebSocket:", error);
+        console.error("❌ ===== ОШИБКА WEBSOCKET =====");
+        console.error("❌ Ошибка:", error);
+        console.error("❌ Тип:", typeof error);
+        console.error("❌ ===== КОНЕЦ ОШИБКИ WEBSOCKET =====");
+      });
+
+      // Дополнительные обработчики для диагностики
+      this.socket.io.on("error", (ioError: unknown) => {
+        console.error("❌ ===== ОШИБКА IO =====");
+        console.error("❌ IO Ошибка:", ioError);
+        console.error("❌ ===== КОНЕЦ ОШИБКИ IO =====");
+      });
+
+      this.socket.io.engine.on("error", (engineError: unknown) => {
+        console.error("❌ ===== ОШИБКА ENGINE =====");
+        console.error("❌ Engine Ошибка:", engineError);
+        console.error("❌ ===== КОНЕЦ ОШИБКИ ENGINE =====");
       });
     });
   }
