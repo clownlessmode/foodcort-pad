@@ -42,11 +42,12 @@ const getStatusText = (status: Order["status"]) => {
   }
 };
 
-const formatElapsedTime = (date: Date) => {
+const formatElapsedTime = (dateLike: Date | string) => {
+  const date = dateLike instanceof Date ? dateLike : new Date(dateLike);
   const now = new Date();
-  const diffInMinutes = Math.floor(
-    (now.getTime() - date.getTime()) / (1000 * 60)
-  );
+  const createdMs = date.getTime();
+  if (Number.isNaN(createdMs)) return "—";
+  const diffInMinutes = Math.floor((now.getTime() - createdMs) / (1000 * 60));
 
   if (diffInMinutes < 1) return "0 мин";
   if (diffInMinutes < 60) return `${diffInMinutes} мин`;
