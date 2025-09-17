@@ -138,40 +138,26 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-12">
-          <h1 className="text-5xl font-bold text-foreground">Заказы кухни</h1>
-          <div className="flex items-center gap-6">
-            <Badge variant="outline" className="text-2xl px-6 py-3 border-2">
-              Новые: {newOrders.length}
-            </Badge>
-            <Badge variant="outline" className="text-2xl px-6 py-3 border-2">
-              Готовые: {completedOrders.length}
-            </Badge>
-            <Badge variant="outline" className="text-2xl px-6 py-3 border-2">
-              Отданы (сегодня): {deliveredToday.length}
-            </Badge>
-          </div>
-        </div>
-
         <Tabs defaultValue="new">
           <TabsList className="mb-10 flex gap-6 p-4 md:p-6 rounded-xl">
             <TabsTrigger
               value="new"
               className="text-2xl md:text-3xl px-8 md:px-10 py-5 md:py-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
-              Новые
+              Новые {newOrders.length > 0 ? newOrders.length : ""}{" "}
+              {window.innerWidth} {window.innerHeight}
             </TabsTrigger>
             <TabsTrigger
               value="completed"
               className="text-2xl md:text-3xl px-8 md:px-10 py-5 md:py-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
-              Готовые
+              Готовые {completedOrders.length > 0 ? completedOrders.length : ""}
             </TabsTrigger>
             <TabsTrigger
               value="delivered_today"
               className="text-2xl md:text-3xl px-8 md:px-10 py-5 md:py-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
-              Отданы
+              Отданы {deliveredToday.length > 0 ? deliveredToday.length : ""}
             </TabsTrigger>
           </TabsList>
 
