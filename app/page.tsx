@@ -70,6 +70,46 @@ export default function KitchenApp() {
       updatedAt?: string;
     };
 
+    const parseServerDate = (input?: unknown): Date => {
+      if (!input) return new Date();
+      if (input instanceof Date) return new Date(input.getTime());
+      if (typeof input === "number") {
+        const ms = input < 1e12 ? input * 1000 : input;
+        return new Date(ms);
+      }
+      if (typeof input === "string") {
+        const trimmed = input.trim();
+        // Try native parser first (handles ISO, RFC, etc.)
+        const native = new Date(trimmed);
+        if (!Number.isNaN(native.getTime())) return native;
+
+        // Handle formats like "DD.MM.YYYY, HH:MM:SS" or "DD.MM.YYYY HH:MM:SS"
+        const match = trimmed.match(
+          /^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})(?:[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/
+        );
+        if (match) {
+          const [, dStr, mStr, yStr, hhStr, mmStr, ssStr] = match;
+          const day = Number(dStr);
+          const month = Number(mStr) - 1;
+          let year = Number(yStr);
+          if (year < 100) year += 2000;
+          const hours = hhStr ? Number(hhStr) : 0;
+          const minutes = mmStr ? Number(mmStr) : 0;
+          const seconds = ssStr ? Number(ssStr) : 0;
+          return new Date(year, month, day, hours, minutes, seconds);
+        }
+
+        // Numeric strings as epoch
+        if (/^\d+$/.test(trimmed)) {
+          const num = Number(trimmed);
+          const ms = num < 1e12 ? num * 1000 : num;
+          return new Date(ms);
+        }
+      }
+      // Fallback to now to avoid Invalid Date downstream
+      return new Date();
+    };
+
     const mapServerOrderToLocal = (src: ServerOrder): Order => {
       const idValue = src.id ?? src.orderId;
       const createdAtIso = src.create_at || src.created_at || src.createdAt;
@@ -87,7 +127,15 @@ export default function KitchenApp() {
         if (productObjects.length > 0) {
           items = productObjects.map((p, index) => {
             const anyP = p as Record<string, unknown>;
-            const name = (anyP["name"] as string) || `Товар ${index + 1}`;
+            const preferredName =
+              (anyP["name_original"] as string) ||
+              (anyP["nameOriginal"] as string) ||
+              (anyP["name"] as string) ||
+              "";
+            const name =
+              preferredName && preferredName.toString().trim().length > 0
+                ? (preferredName as string)
+                : `Товар ${index + 1}`;
             const quantity = Number(
               (anyP["quantity"] as number) ??
                 (anyP["qty"] as number) ??
@@ -112,8 +160,8 @@ export default function KitchenApp() {
         number: String(idValue ?? ""),
         items,
         status: (src.status as OrderStatus) || "new",
-        createdAt: createdAtIso ? new Date(createdAtIso) : new Date(),
-        updatedAt: updatedAtIso ? new Date(updatedAtIso) : undefined,
+        createdAt: parseServerDate(createdAtIso),
+        updatedAt: updatedAtIso ? parseServerDate(updatedAtIso) : undefined,
         total: 0,
         orderType: "takeaway",
       };
