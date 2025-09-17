@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orders WebSocket Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .section {
+        margin: 20px 0;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+      button {
+        padding: 10px 15px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      .log {
+        background: #f5f5f5;
+        padding: 10px;
+        height: 200px;
+        overflow-y: scroll;
+        font-family: monospace;
+      }
+      .order {
+        background: #e8f5e8;
+        padding: 10px;
+        margin: 5px 0;
+        border-radius: 3px;
+      }
+      .status-update {
+        background: #fff3cd;
+        padding: 10px;
+        margin: 5px 0;
+        border-radius: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🍕 Orders WebSocket Test</h1>
+
+      <div class="section">
+        <h3>Подключение</h3>
+        <button onclick="connect()">Подключиться</button>
+        <button onclick="disconnect()">Отключиться</button>
+        <button onclick="joinAdmin()">Стать администратором</button>
+        <span id="status">Отключен</span>
+      </div>
+
+      <div class="section">
+        <h3>Действия</h3>
+        <p><em>📋 Заказы загружаются автоматически при подключении</em></p>
+        <button onclick="getOrders()">Обновить заказы</button>
+        <button onclick="updateOrderStatus()">Обновить статус заказа</button>
+        <button onclick="getConnectedClients()">Проверить подключения</button>
+      </div>
+
+      <div class="section">
+        <h3>Обновление статуса</h3>
+        <input
+          type="number"
+          id="orderIdInput"
+          placeholder="ID заказа"
+          value="1"
+        />
+        <select id="statusSelect">
+          <option value="new">Новый</option>
+          <option value="completed">Готов</option>
+          <option value="cancelled">Отменен</option>
+          <option value="delivered">Отдан</option>
+        </select>
+        <button onclick="updateStatus()">Обновить</button>
+      </div>
+
+      <div class="section">
+        <h3>Заказы</h3>
+        <div id="orders"></div>
+      </div>
+
+      <div class="section">
+        <h3>Логи</h3>
+        <div id="logs" class="log"></div>
+        <button onclick="clearLogs()">Очистить</button>
+      </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script>
+      let socket = null;
+
+      function log(message) {
+        const logs = document.getElementById("logs");
+        const time = new Date().toLocaleTimeString();
+        logs.innerHTML += `[${time}] ${message}\n`;
+        logs.scrollTop = logs.scrollHeight;
+      }
+
+      function connect() {
+        if (socket) {
+          socket.disconnect();
+        }
+
+        socket = io("http://localhost:3006/orders");
+
+        socket.on("connect", () => {
+          document.getElementById("status").textContent = "Подключен";
+          document.getElementById("status").style.color = "green";
+          log("✅ Подключен к WebSocket");
+        });
+
+        // Подтверждение подключения
+        socket.on("connection_confirmed", (data) => {
+          log(`🎉 Подключение подтверждено: ${data.message}`);
+          log(`👤 ID клиента: ${data.clientId}`);
+          log(`📋 Загружаем список заказов...`);
+        });
+
+        socket.on("disconnect", () => {
+          document.getElementById("status").textContent = "Отключен";
+          document.getElementById("status").style.color = "red";
+          log("❌ Отключен от WebSocket");
+        });
+
+        // Слушаем новые заказы
+        socket.on("new_order", (order) => {
+          log(`🆕 Новый заказ: #${order.orderId}`);
+          addOrderToList(order, "order");
+        });
+
+        // Слушаем обновления статусов
+        socket.on("order_status_updated", (update) => {
+          log(`🔄 Заказ #${update.orderId} → ${update.status}`);
+          addOrderToList(update, "status-update");
+        });
+
+        // Слушаем список заказов
+        socket.on("orders_list", (orders) => {
+          log(`📋 Получен список заказов: ${orders.length} шт.`);
+          displayOrders(orders);
+        });
+
+        // Слушаем информацию о подключенных клиентах
+        socket.on("clients_info", (info) => {
+          log(`📊 Клиенты в комнате заказов: ${info.ordersRoomClients}`);
+          log(`👑 Клиенты-администраторы: ${info.adminRoomClients}`);
+          log(`🌐 Всего подключений: ${info.totalClients}`);
+        });
+      }
+
+      function disconnect() {
+        if (socket) {
+          socket.disconnect();
+          socket = null;
+        }
+      }
+
+      function joinAdmin() {
+        if (socket) {
+          socket.emit("join_admin");
+          log("👑 Присоединился к администраторам");
+        }
+      }
+
+      function getOrders() {
+        if (socket) {
+          socket.emit("get_orders");
+          log("📋 Запрашиваем список заказов...");
+        }
+      }
+
+      function getConnectedClients() {
+        if (socket) {
+          socket.emit("get_connected_clients");
+          log("📊 Запрашиваем информацию о подключенных клиентах...");
+        }
+      }
+
+      function updateStatus() {
+        const orderId = document.getElementById("orderIdInput").value;
+        const status = document.getElementById("statusSelect").value;
+
+        if (socket && orderId) {
+          socket.emit("update_order_status", {
+            orderId: parseInt(orderId),
+            status: status,
+          });
+          log(`🔄 Обновляем статус заказа #${orderId} → ${status}`);
+        }
+      }
+
+      function addOrderToList(data, type) {
+        const ordersDiv = document.getElementById("orders");
+        const orderDiv = document.createElement("div");
+        orderDiv.className = type;
+
+        if (type === "order") {
+          orderDiv.innerHTML = `
+                    <strong>Заказ #${data.orderId}</strong><br>
+                    Статус: ${data.status}<br>
+                    Телефон: ${data.phoneNumber}<br>
+                    Магазин: ${data.idStore}<br>
+                    Время: ${new Date(data.createdAt).toLocaleString()}
+                `;
+        } else {
+          orderDiv.innerHTML = `
+                    <strong>Обновление #${data.orderId}</strong><br>
+                    Новый статус: ${data.status}<br>
+                    Время: ${new Date(data.timestamp).toLocaleString()}
+                `;
+        }
+
+        ordersDiv.insertBefore(orderDiv, ordersDiv.firstChild);
+      }
+
+      function displayOrders(orders) {
+        const ordersDiv = document.getElementById("orders");
+        ordersDiv.innerHTML = "";
+
+        orders.forEach((order) => {
+          addOrderToList(
+            {
+              orderId: order.id,
+              status: order.status,
+              phoneNumber: order.phone_number,
+              idStore: order.id_store,
+              createdAt: order.created_at || new Date().toISOString(),
+            },
+            "order"
+          );
+        });
+      }
+
+      function clearLogs() {
+        document.getElementById("logs").innerHTML = "";
+      }
+
+      // Автоподключение при загрузке страницы
+      window.onload = () => {
+        connect();
+      };
+    </script>
+  </body>
+</html>
