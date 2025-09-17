@@ -47,8 +47,8 @@ export class OrdersWebSocketClient {
         this.isConnected = true;
         console.log("✅ Подключен к серверу заказов");
         console.log("🔗 Socket ID:", this.socket?.id);
-
-        console.log("🔗 Transport:", this.socket?.io.engine.transport.name);
+        const transportName = (this.socket as any)?.io?.engine?.transport?.name;
+        console.log("🔗 Transport:", transportName);
 
         // Автоматически запрашиваем список заказов при подключении
         this.socket?.emit("get_orders");
@@ -64,19 +64,24 @@ export class OrdersWebSocketClient {
 
       this.socket.on("connect_error", (error) => {
         console.error("❌ ===== ОШИБКА ПОДКЛЮЧЕНИЯ =====");
-        console.error(
-          "❌ Тип ошибки:",
-          "type" in error ? (error as any).type : "неизвестно"
-        );
-        console.error("❌ Сообщение:", (error as Error).message);
-        console.error(
-          "❌ Описание:",
-          "description" in error ? (error as any).description : "нет описания"
-        );
-        console.error(
-          "❌ Контекст:",
-          "context" in error ? (error as any).context : "нет контекста"
-        );
+        {
+          const errAny = error as any;
+          console.error(
+            "❌ Тип ошибки:",
+            errAny && "type" in errAny ? errAny.type : "неизвестно"
+          );
+          console.error("❌ Сообщение:", (error as Error).message);
+          console.error(
+            "❌ Описание:",
+            errAny && "description" in errAny
+              ? errAny.description
+              : "нет описания"
+          );
+          console.error(
+            "❌ Контекст:",
+            errAny && "context" in errAny ? errAny.context : "нет контекста"
+          );
+        }
         console.error("❌ Полная ошибка:", error);
         console.error("❌ URL (origin):", origin);
         console.error("❌ Socket.IO path:", socketPath);
@@ -107,7 +112,7 @@ export class OrdersWebSocketClient {
         console.error("❌ ===== КОНЕЦ ОШИБКИ IO =====");
       });
 
-      this.socket.io.engine.on("error", (engineError: unknown) => {
+      (this.socket as any).io.engine.on("error", (engineError: unknown) => {
         console.error("❌ ===== ОШИБКА ENGINE =====");
         console.error("❌ Engine Ошибка:", engineError);
         console.error("❌ ===== КОНЕЦ ОШИБКИ ENGINE =====");

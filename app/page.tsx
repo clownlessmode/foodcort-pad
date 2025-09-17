@@ -55,19 +55,25 @@ export default function KitchenApp() {
     const client = new OrdersWebSocketClient();
 
     type ServerOrder = {
-      id: string | number;
+      id?: string | number;
+      orderId?: string | number;
       id_store?: string | number;
+      idStore?: string | number;
       phone_number?: string | null;
+      phoneNumber?: string | null;
       products?: unknown;
       status?: string;
       create_at?: string;
       created_at?: string;
+      createdAt?: string;
       updated_at?: string;
+      updatedAt?: string;
     };
 
     const mapServerOrderToLocal = (src: ServerOrder): Order => {
-      const createdAtIso = src.create_at || src.created_at;
-      const updatedAtIso = src.updated_at;
+      const idValue = src.id ?? src.orderId;
+      const createdAtIso = src.create_at || src.created_at || src.createdAt;
+      const updatedAtIso = src.updated_at || src.updatedAt;
       const rawProducts = src.products;
 
       let items: OrderItem[] = [];
@@ -83,22 +89,27 @@ export default function KitchenApp() {
             const anyP = p as Record<string, unknown>;
             const name = (anyP["name"] as string) || `Товар ${index + 1}`;
             const quantity = Number(
-              (anyP["quantity"] as number) || (anyP["qty"] as number) || 1
+              (anyP["quantity"] as number) ??
+                (anyP["qty"] as number) ??
+                (anyP["count"] as number) ??
+                1
             );
             return {
               id: String(
-                (anyP["id"] as string | number) ?? `${src.id}-${index}`
+                (anyP["id"] as string | number) ??
+                  `${String(idValue ?? "unknown")}-${index}`
               ),
               name,
               quantity,
+              comment: (anyP["comment"] as string) || undefined,
             };
           });
         }
       }
 
       const mapped: Order = {
-        id: String(src.id),
-        number: String(src.id),
+        id: String(idValue ?? ""),
+        number: String(idValue ?? ""),
         items,
         status: (src.status as OrderStatus) || "new",
         createdAt: createdAtIso ? new Date(createdAtIso) : new Date(),
