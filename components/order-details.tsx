@@ -84,25 +84,27 @@ export function OrderDetails({
   };
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-5xl mx-auto pb-36">
+    <div className="min-h-screen bg-background p-4 md:p-6">
+      <div className="max-w-3xl mx-auto pb-24">
         {/* Header */}
-        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b mb-12 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-6">
+        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b mb-6 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <Button
               variant="outline"
-              size="lg"
+              size="sm"
               onClick={onBack}
-              className="p-6 bg-transparent border-2 hover:scale-105"
+              className="bg-transparent"
             >
-              <ArrowLeft className="w-8 h-8" />
+              <ArrowLeft className="w-5 h-5" />
             </Button>
-            <h1 className="text-3xl font-bold text-foreground">
+            <h1 className="text-xl md:text-2xl font-bold text-foreground">
               Заказ {order.number}
             </h1>
           </div>
           <Badge
-            className={`text-2xl px-6 py-3 ${getStatusColor(order.status)}`}
+            className={`text-sm md:text-base px-3 py-1 ${getStatusColor(
+              order.status
+            )}`}
           >
             {getStatusText(order.status)}
           </Badge>
@@ -110,24 +112,17 @@ export function OrderDetails({
 
         {/* Order Meta */}
         {(order.note || order.phoneNumber || order.storeId) && (
-          <Card className="p-8 mb-12">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <Card className="p-4 md:p-6 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
               {order.note && (
                 <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <StickyNote className="w-6 h-6 text-primary" />
-                    <h3 className="text-2xl font-semibold">Комментарий</h3>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <StickyNote className="w-4 h-4 text-primary" />
+                    <h3 className="text-lg md:text-xl font-semibold">
+                      Комментарий
+                    </h3>
                   </div>
-                  <p className="text-xl">{order.note}</p>
-                </div>
-              )}
-              {order.phoneNumber && (
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <Phone className="w-6 h-6 text-primary" />
-                    <h3 className="text-2xl font-semibold">Телефон</h3>
-                  </div>
-                  <p className="text-xl">{order.phoneNumber}</p>
+                  <p className="text-base md:text-lg">{order.note}</p>
                 </div>
               )}
             </div>
@@ -135,34 +130,36 @@ export function OrderDetails({
         )}
 
         {/* Order Items */}
-        <Card className="p-8 mb-12">
-          <h2 className="text-3xl font-bold mb-8">Состав заказа</h2>
-          <div className="space-y-8">
+        <Card className="p-4 md:p-6 mb-6">
+          <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">
+            Состав заказа
+          </h2>
+          <div className="space-y-4 md:space-y-6">
             {order.items.map((item) => (
               <div
                 key={item.id}
-                className="border-b border-border pb-8 last:border-b-0"
+                className="border-b border-border pb-4 md:pb-6 last:border-b-0"
               >
-                <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-2xl font-semibold text-foreground">
+                <div className="flex justify-between items-start mb-3">
+                  <h3 className="text-lg md:text-xl font-semibold text-foreground">
                     {item.name}
                   </h3>
-                  <span className="text-2xl font-bold text-primary">
+                  <span className="text-lg md:text-xl font-bold text-primary">
                     x{item.quantity}
                   </span>
                 </div>
 
                 {item.addons && item.addons.length > 0 && (
-                  <div className="mb-4">
-                    <p className="text-xl font-medium text-muted-foreground mb-3">
+                  <div className="mb-3">
+                    <p className="text-sm md:text-base font-medium text-muted-foreground mb-2">
                       Дополнения:
                     </p>
-                    <div className="flex flex-wrap gap-3">
+                    <div className="flex flex-wrap gap-2">
                       {item.addons.map((addon, index) => (
                         <Badge
                           key={index}
                           variant="secondary"
-                          className="text-lg px-3 py-1"
+                          className="text-xs md:text-sm px-2 py-0.5"
                         >
                           {addon}
                         </Badge>
@@ -172,11 +169,13 @@ export function OrderDetails({
                 )}
 
                 {item.comment && (
-                  <div className="bg-muted p-6 rounded-lg">
-                    <p className="text-xl font-medium text-muted-foreground mb-2">
+                  <div className="bg-muted p-3 md:p-4 rounded-lg">
+                    <p className="text-sm md:text-base font-medium text-muted-foreground mb-1 md:mb-2">
                       Комментарий:
                     </p>
-                    <p className="text-xl text-foreground">{item.comment}</p>
+                    <p className="text-base md:text-lg text-foreground">
+                      {item.comment}
+                    </p>
                   </div>
                 )}
               </div>
@@ -188,16 +187,16 @@ export function OrderDetails({
       </div>
       {/* Sticky/FIxed bottom bar with compact info and actions */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t">
-        <div className="max-w-5xl mx-auto px-8 py-3 flex items-center justify-between gap-6">
-          <div className="grid grid-cols-2 gap-6 w-full md:flex-1">
+        <div className="max-w-3xl mx-auto px-4 md:px-6 py-2 flex items-center justify-between gap-4">
+          <div className="grid grid-cols-2 gap-4 w-full md:flex-1">
             <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 md:w-6 md:h-6 text-primary" />
-              <span className="text-lg md:text-xl font-semibold text-foreground">
+              <Clock className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+              <span className="text-base md:text-lg font-semibold text-foreground">
                 {formatElapsedTime(order.createdAt)}
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <Package className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+              <Package className="w-4 h-4 md:w-5 md:h-5 text-primary" />
               <Badge
                 className={`text-xs px-2 py-0.5 ${
                   order.receivingMethod === "delivery"
@@ -209,13 +208,13 @@ export function OrderDetails({
               </Badge>
             </div>
           </div>
-          <div className="flex items-center gap-4 shrink-0">
+          <div className="flex items-center gap-3 shrink-0">
             {order.status === "new" && (
               <Button
                 onClick={handleComplete}
-                className="px-6 py-3 text-lg md:text-xl hover:scale-105 transition-transform"
+                className="px-4 py-2 text-sm md:text-base hover:scale-[1.02] transition-transform"
               >
-                <CheckCircle className="w-6 h-6 mr-2" />
+                <CheckCircle className="w-5 h-5 mr-2" />
                 Отметить готовым
               </Button>
             )}
@@ -223,18 +222,18 @@ export function OrderDetails({
               <Button
                 variant="destructive"
                 onClick={handleCancel}
-                className="px-6 py-3 text-lg md:text-xl hover:scale-105 transition-transform"
+                className="px-4 py-2 text-sm md:text-base hover:scale-[1.02] transition-transform"
               >
-                <XCircle className="w-6 h-6 mr-2" />
+                <XCircle className="w-5 h-5 mr-2" />
                 Отменить
               </Button>
             )}
             {order.status === "completed" && (
               <Button
                 onClick={handleDeliver}
-                className="px-6 py-3 text-lg md:text-xl hover:scale-105 transition-transform"
+                className="px-4 py-2 text-sm md:text-base hover:scale-[1.02] transition-transform"
               >
-                <CheckCircle className="w-6 h-6 mr-2" />
+                <CheckCircle className="w-5 h-5 mr-2" />
                 Отдать заказ
               </Button>
             )}
