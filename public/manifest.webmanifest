@@ -1,0 +1,23 @@
+{
+  "name": "Foodcord Pad",
+  "short_name": "Foodcord",
+  "description": "Kitchen orders terminal",
+  "start_url": "/grill-terminal/",
+  "scope": "/grill-terminal/",
+  "display": "standalone",
+  "background_color": "#0b0b0c",
+  "theme_color": "#0b0b0c",
+  "orientation": "landscape",
+  "icons": [
+    {
+      "src": "/grill-terminal/placeholder-logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/grill-terminal/placeholder-logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
