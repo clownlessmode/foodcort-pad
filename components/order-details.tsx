@@ -85,9 +85,9 @@ export function OrderDetails({
 
   return (
     <div className="min-h-screen bg-background p-8">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-5xl mx-auto pb-36">
         {/* Header */}
-        <div className="flex items-center justify-between mb-12">
+        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b mb-12 py-4 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <Button
               variant="outline"
@@ -106,30 +106,6 @@ export function OrderDetails({
           >
             {getStatusText(order.status)}
           </Badge>
-        </div>
-
-        {/* Order Info */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-          <Card className="p-8">
-            <div className="flex items-center gap-4 mb-4">
-              <Clock className="w-8 h-8 text-primary" />
-              <h3 className="text-2xl font-semibold">Время</h3>
-            </div>
-            <p className="text-4xl font-bold text-primary">
-              {formatElapsedTime(order.createdAt)}
-            </p>
-            <p className="text-xl text-muted-foreground">с момента создания</p>
-          </Card>
-
-          <Card className="p-8">
-            <div className="flex items-center gap-4 mb-4">
-              <Package className="w-8 h-8 text-primary" />
-              <h3 className="text-2xl font-semibold">Получение</h3>
-            </div>
-            <p className="text-3xl font-bold">
-              {order.orderType === "takeaway" ? "С собой" : "В ресторане"}
-            </p>
-          </Card>
         </div>
 
         {/* Order Meta */}
@@ -152,15 +128,6 @@ export function OrderDetails({
                     <h3 className="text-2xl font-semibold">Телефон</h3>
                   </div>
                   <p className="text-xl">{order.phoneNumber}</p>
-                </div>
-              )}
-              {order.storeId && (
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <Store className="w-6 h-6 text-primary" />
-                    <h3 className="text-2xl font-semibold">Точка</h3>
-                  </div>
-                  <p className="text-xl">{String(order.storeId)}</p>
                 </div>
               )}
             </div>
@@ -217,41 +184,55 @@ export function OrderDetails({
           </div>
         </Card>
 
-        {/* Action Buttons */}
-        <div className="flex gap-8 justify-center">
-          {order.status === "new" && (
-            <Button
-              size="lg"
-              onClick={handleComplete}
-              className="px-12 py-6 text-2xl hover:scale-105 transition-transform"
-            >
-              <CheckCircle className="w-8 h-8 mr-3" />
-              Отметить готовым
-            </Button>
-          )}
-
-          {order.status === "new" && (
-            <Button
-              variant="destructive"
-              size="lg"
-              onClick={handleCancel}
-              className="px-12 py-6 text-2xl hover:scale-105 transition-transform"
-            >
-              <XCircle className="w-8 h-8 mr-3" />
-              Отменить заказ
-            </Button>
-          )}
-
-          {order.status === "completed" && (
-            <Button
-              size="lg"
-              onClick={handleDeliver}
-              className="px-12 py-6 text-2xl hover:scale-105 transition-transform"
-            >
-              <CheckCircle className="w-8 h-8 mr-3" />
-              Отдать заказ
-            </Button>
-          )}
+        {/* Bottom bar spacer handled by parent padding */}
+      </div>
+      {/* Sticky/FIxed bottom bar with compact info and actions */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t">
+        <div className="max-w-5xl mx-auto px-8 py-3 flex items-center justify-between gap-6">
+          <div className="grid grid-cols-2 gap-6 w-full md:flex-1">
+            <div className="flex items-center gap-2">
+              <Clock className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+              <span className="text-lg md:text-xl font-semibold text-foreground">
+                {formatElapsedTime(order.createdAt)}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Package className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+              <span className="text-lg md:text-xl font-semibold text-foreground">
+                {order.orderType === "takeaway" ? "С собой" : "В ресторане"}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 shrink-0">
+            {order.status === "new" && (
+              <Button
+                onClick={handleComplete}
+                className="px-6 py-3 text-lg md:text-xl hover:scale-105 transition-transform"
+              >
+                <CheckCircle className="w-6 h-6 mr-2" />
+                Отметить готовым
+              </Button>
+            )}
+            {order.status === "new" && (
+              <Button
+                variant="destructive"
+                onClick={handleCancel}
+                className="px-6 py-3 text-lg md:text-xl hover:scale-105 transition-transform"
+              >
+                <XCircle className="w-6 h-6 mr-2" />
+                Отменить
+              </Button>
+            )}
+            {order.status === "completed" && (
+              <Button
+                onClick={handleDeliver}
+                className="px-6 py-3 text-lg md:text-xl hover:scale-105 transition-transform"
+              >
+                <CheckCircle className="w-6 h-6 mr-2" />
+                Отдать заказ
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
