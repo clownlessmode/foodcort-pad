@@ -80,14 +80,14 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
   );
 
   const renderGrid = (list: Order[]) => (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+    <div className="grid grid-cols-3">
       {list.map((order) => (
         <Card
           key={order.id}
-          className="p-8 cursor-pointer hover:shadow-xl transition-all duration-200 border-4 hover:border-primary hover:scale-105"
+          className="p-4 cursor-pointer hover:shadow-xl transition-all duration-200 border-2 hover:border-primary hover:scale-105"
           onClick={() => onSelectOrder(order)}
         >
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between ">
             <h2 className="text-3xl font-bold text-foreground">
               Заказ {order.number}
             </h2>
@@ -98,7 +98,7 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
             </Badge>
           </div>
 
-          <div className="space-y-4 mb-6">
+          <div className="space-y-2 mb-3">
             {order.items.slice(0, 3).map((item) => (
               <div key={item.id} className="flex justify-between items-center">
                 <span className="text-xl text-card-foreground font-medium">
@@ -116,7 +116,7 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
             )}
           </div>
 
-          <div className="flex items-center justify-between text-muted-foreground">
+          <div className="flex items-start gap-2 justify-between text-muted-foreground flex-col">
             <div className="flex items-center gap-3">
               <Clock className="w-6 h-6" />
               <span className="text-xl font-medium">
@@ -139,13 +139,12 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-7xl mx-auto">
         <Tabs defaultValue="new">
-          <TabsList className="mb-10 flex gap-6 p-4 md:p-6 rounded-xl">
+          <TabsList className="mb-3 flex gap-6 p-4 md:p-6 rounded-xl w-full !px-0 ">
             <TabsTrigger
               value="new"
-              className="text-2xl md:text-3xl px-8 md:px-10 py-5 md:py-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              className="text-2xl md:text-3xl md:px-10 py-5 md:py-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
-              Новые {newOrders.length > 0 ? newOrders.length : ""}{" "}
-              {window.innerWidth} {window.innerHeight}
+              Новые {newOrders.length > 0 ? newOrders.length : ""}
             </TabsTrigger>
             <TabsTrigger
               value="completed"
