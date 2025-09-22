@@ -101,23 +101,7 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
             </Badge>
           </div>
 
-          <div className="space-y-2 mb-3">
-            {order.items.slice(0, 3).map((item) => (
-              <div key={item.id} className="flex justify-between items-center">
-                <span className="text-xl text-card-foreground font-medium">
-                  {item.name}
-                </span>
-                <span className="text-xl font-bold text-primary">
-                  x{item.quantity}
-                </span>
-              </div>
-            ))}
-            {order.items.length > 3 && (
-              <div className="text-muted-foreground text-xl">
-                +{order.items.length - 3} позиций...
-              </div>
-            )}
-          </div>
+          {/* removed items preview */}
 
           <div className="flex items-start gap-2 justify-between text-muted-foreground flex-col">
             <div className="flex items-center gap-3">
