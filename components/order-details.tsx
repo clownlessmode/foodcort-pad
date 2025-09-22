@@ -78,7 +78,7 @@ export function OrderDetails({
     <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="max-w-3xl mx-auto pb-24">
         {/* Header */}
-        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b mb-6 py-2 flex items-center justify-between">
+        <div className="sticky backdrop-blur-lg top-0 z-40 bg-background/95  supports-[backdrop-filter]:bg-background/60 border-b mb-6 py-2 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button
               variant="outline"
@@ -156,7 +156,7 @@ export function OrderDetails({
         {/* Bottom bar spacer handled by parent padding */}
       </div>
       {/* Sticky/FIxed bottom bar with compact info and actions */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t">
+      <div className="fixed backdrop-blur-lg bottom-0 left-0 right-0 z-40 bg-background/95 supports-[backdrop-filter]:bg-background/60 border-t">
         <div className="max-w-3xl mx-auto px-4 md:px-6 py-2 flex items-center justify-between gap-4">
           <div className="grid grid-cols-2 gap-4 w-full md:flex-1">
             <div className="flex items-center gap-2">
