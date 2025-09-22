@@ -91,7 +91,7 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
           onClick={() => onSelectOrder(order)}
         >
           <div className="flex items-center justify-between ">
-            <h2 className="text-3xl font-bold text-foreground">
+            <h2 className="text-xl font-bold text-foreground">
               Заказ {order.number}
             </h2>
             <Badge
