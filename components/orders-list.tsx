@@ -95,7 +95,7 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
               Заказ {order.number}
             </h2>
             <Badge
-              className={`text-xl px-4 py-2 ${getStatusColor(order.status)}`}
+              className={`text-sm px-2 py-1 ${getStatusColor(order.status)}`}
             >
               {getStatusText(order.status)}
             </Badge>
