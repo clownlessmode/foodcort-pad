@@ -205,9 +205,7 @@ export function OrderDetails({
                     : "bg-amber-500"
                 } text-white`}
               >
-                {order.receivingMethod === "delivery"
-                  ? "Доставка"
-                  : "Самовывоз"}
+                {order.receivingMethod === "delivery" ? "В пакете" : "В зале"}
               </Badge>
             </div>
           </div>

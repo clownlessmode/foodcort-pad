@@ -79,7 +79,7 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
   );
 
   const getReceivingBadge = (method: Order["receivingMethod"]) => {
-    const text = method === "delivery" ? "Доставка" : "Самовывоз";
+    const text = method === "delivery" ? "В пакете" : "В зале";
     const color = method === "delivery" ? "bg-blue-500" : "bg-amber-500";
     return (
       <Badge className={`text-xs px-2 py-0.5 ${color} text-white`}>
