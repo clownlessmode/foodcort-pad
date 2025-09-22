@@ -198,9 +198,17 @@ export function OrderDetails({
             </div>
             <div className="flex items-center gap-2">
               <Package className="w-5 h-5 md:w-6 md:h-6 text-primary" />
-              <span className="text-lg md:text-xl font-semibold text-foreground">
-                {order.orderType === "takeaway" ? "С собой" : "В ресторане"}
-              </span>
+              <Badge
+                className={`text-xs px-2 py-0.5 ${
+                  order.receivingMethod === "delivery"
+                    ? "bg-blue-500"
+                    : "bg-amber-500"
+                } text-white`}
+              >
+                {order.receivingMethod === "delivery"
+                  ? "Доставка"
+                  : "Самовывоз"}
+              </Badge>
             </div>
           </div>
           <div className="flex items-center gap-4 shrink-0">

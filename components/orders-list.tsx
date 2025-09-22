@@ -57,14 +57,6 @@ const formatTime = (dateLike: Date | string) => {
 };
 
 export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
-  const newOrders = orders.filter((order) => order.status === "new");
-  const completedOrders = orders.filter(
-    (order) => order.status === "completed"
-  );
-  const deliveredOrders = orders.filter(
-    (order) => order.status === "delivered"
-  );
-
   const isToday = (date: Date) => {
     const d = date;
     const now = new Date();
@@ -75,9 +67,26 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
     );
   };
 
-  const deliveredToday = deliveredOrders.filter((o) =>
-    isToday(o.updatedAt ?? o.createdAt)
+  const todaysOrders = orders.filter((o) =>
+    isToday((o.updatedAt ?? o.createdAt) as Date)
   );
+  const newOrders = todaysOrders.filter((order) => order.status === "new");
+  const completedOrders = todaysOrders.filter(
+    (order) => order.status === "completed"
+  );
+  const deliveredToday = todaysOrders.filter(
+    (order) => order.status === "delivered"
+  );
+
+  const getReceivingBadge = (method: Order["receivingMethod"]) => {
+    const text = method === "delivery" ? "Доставка" : "Самовывоз";
+    const color = method === "delivery" ? "bg-blue-500" : "bg-amber-500";
+    return (
+      <Badge className={`text-xs px-2 py-0.5 ${color} text-white`}>
+        {text}
+      </Badge>
+    );
+  };
   console.log("Заказы:", orders);
   console.log("Новые заказы:", newOrders);
   console.log("Готовые заказы:", completedOrders);
@@ -112,9 +121,7 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
             </div>
             <div className="flex items-center gap-3">
               <Package className="w-6 h-6" />
-              <span className="text-xl font-medium">
-                {order.orderType === "takeaway" ? "С собой" : "В зале"}
-              </span>
+              {getReceivingBadge(order.receivingMethod)}
             </div>
           </div>
         </Card>

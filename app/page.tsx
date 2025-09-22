@@ -24,6 +24,7 @@ export type Order = {
   updatedAt?: Date;
   total: number;
   orderType: "takeaway" | "dine-in";
+  receivingMethod: "delivery" | "self_service";
   note?: string;
   phoneNumber?: string | null;
   storeId?: string | number;
@@ -71,6 +72,8 @@ export default function KitchenApp() {
       createdAt?: string;
       updated_at?: string;
       updatedAt?: string;
+      receiving_method?: "delivery" | "self_service";
+      receivingMethod?: "delivery" | "self_service";
       message?: string;
     };
 
@@ -119,6 +122,9 @@ export default function KitchenApp() {
       const createdAtIso = src.create_at || src.created_at || src.createdAt;
       const updatedAtIso = src.updated_at || src.updatedAt;
       const rawProducts = src.products;
+      const receivingMethodValue = (src.receiving_method ??
+        src.receivingMethod ??
+        "self_service") as "delivery" | "self_service";
 
       let items: OrderItem[] = [];
       if (Array.isArray(rawProducts)) {
@@ -206,6 +212,7 @@ export default function KitchenApp() {
         updatedAt: updatedAtIso ? parseServerDate(updatedAtIso) : undefined,
         total: 0,
         orderType: "takeaway",
+        receivingMethod: receivingMethodValue,
         note:
           typeof src.message === "string" && src.message.trim().length > 0
             ? src.message
