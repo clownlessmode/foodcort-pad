@@ -3,16 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  ArrowLeft,
-  Clock,
-  Package,
-  CheckCircle,
-  XCircle,
-  Phone,
-  Store,
-  StickyNote,
-} from "lucide-react";
+import { ArrowLeft, Clock, Package, CheckCircle, XCircle } from "lucide-react";
 import type { Order, OrderStatus } from "@/app/page";
 
 interface OrderDetailsProps {
@@ -110,30 +101,9 @@ export function OrderDetails({
           </Badge>
         </div>
 
-        {/* Order Meta */}
-        {(order.note || order.phoneNumber || order.storeId) && (
-          <Card className="p-4 md:p-6 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-              {order.note && (
-                <div>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <StickyNote className="w-4 h-4 text-primary" />
-                    <h3 className="text-lg md:text-xl font-semibold">
-                      Комментарий
-                    </h3>
-                  </div>
-                  <p className="text-base md:text-lg">{order.note}</p>
-                </div>
-              )}
-            </div>
-          </Card>
-        )}
-
         {/* Order Items */}
         <Card className="p-4 md:p-6 mb-6">
-          <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">
-            Состав заказа
-          </h2>
+          <h2 className="text-xl md:text-2xl font-bold">Состав заказа</h2>
           <div className="space-y-4 md:space-y-6">
             {order.items.map((item) => (
               <div
