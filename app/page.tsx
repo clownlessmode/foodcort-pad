@@ -24,6 +24,9 @@ export type Order = {
   updatedAt?: Date;
   total: number;
   orderType: "takeaway" | "dine-in";
+  note?: string;
+  phoneNumber?: string | null;
+  storeId?: string | number;
 };
 
 export default function KitchenApp() {
@@ -59,8 +62,8 @@ export default function KitchenApp() {
       orderId?: string | number;
       id_store?: string | number;
       idStore?: string | number;
-      phone_number?: string | null;
-      phoneNumber?: string | null;
+      phone_number?: string | number | null;
+      phoneNumber?: string | number | null;
       products?: unknown;
       status?: string;
       create_at?: string;
@@ -68,6 +71,7 @@ export default function KitchenApp() {
       createdAt?: string;
       updated_at?: string;
       updatedAt?: string;
+      message?: string;
     };
 
     const parseServerDate = (input?: unknown): Date => {
@@ -142,6 +146,43 @@ export default function KitchenApp() {
                 (anyP["count"] as number) ??
                 1
             );
+            // Map include -> addons and merge exclude/comment -> comment
+            let addons: string[] | undefined;
+            const rawInclude = anyP["include"] as unknown;
+            if (Array.isArray(rawInclude)) {
+              const mappedAddons = rawInclude
+                .map((inc) => {
+                  if (!inc || typeof inc !== "object") return "";
+                  const incAny = inc as Record<string, unknown>;
+                  const incName =
+                    (incAny["name"] as string) ||
+                    (incAny["name_original"] as string) ||
+                    "";
+                  const incCount = Number(
+                    (incAny["count"] as number) ??
+                      (incAny["quantity"] as number) ??
+                      1
+                  );
+                  if (!incName) return "";
+                  return incCount > 1 ? `${incName} x${incCount}` : incName;
+                })
+                .filter((s) => s && s.trim().length > 0);
+              if (mappedAddons.length > 0) addons = mappedAddons;
+            }
+
+            const excludeText =
+              typeof anyP["exclude"] === "string"
+                ? (anyP["exclude"] as string)
+                : undefined;
+            const extraComment =
+              typeof anyP["comment"] === "string"
+                ? (anyP["comment"] as string)
+                : undefined;
+            const comment =
+              [excludeText, extraComment]
+                .filter((x) => x && x.toString().trim().length > 0)
+                .join(" • ") || undefined;
+
             return {
               id: String(
                 (anyP["id"] as string | number) ??
@@ -149,7 +190,8 @@ export default function KitchenApp() {
               ),
               name,
               quantity,
-              comment: (anyP["comment"] as string) || undefined,
+              comment,
+              addons,
             };
           });
         }
@@ -164,6 +206,20 @@ export default function KitchenApp() {
         updatedAt: updatedAtIso ? parseServerDate(updatedAtIso) : undefined,
         total: 0,
         orderType: "takeaway",
+        note:
+          typeof src.message === "string" && src.message.trim().length > 0
+            ? src.message
+            : undefined,
+        phoneNumber: (() => {
+          const raw = (src.phoneNumber ?? src.phone_number) as
+            | string
+            | number
+            | null
+            | undefined;
+          if (raw === null || raw === undefined) return null;
+          return String(raw);
+        })(),
+        storeId: src.idStore ?? src.id_store,
       };
 
       return mapped;

@@ -3,7 +3,16 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Clock, Package, CheckCircle, XCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  Clock,
+  Package,
+  CheckCircle,
+  XCircle,
+  Phone,
+  Store,
+  StickyNote,
+} from "lucide-react";
 import type { Order, OrderStatus } from "@/app/page";
 
 interface OrderDetailsProps {
@@ -130,6 +139,41 @@ export function OrderDetails({
             <p className="text-4xl font-bold text-primary">{order.total} ₽</p>
           </Card>
         </div>
+
+        {/* Order Meta */}
+        {(order.note || order.phoneNumber || order.storeId) && (
+          <Card className="p-8 mb-12">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {order.note && (
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <StickyNote className="w-6 h-6 text-primary" />
+                    <h3 className="text-2xl font-semibold">Комментарий</h3>
+                  </div>
+                  <p className="text-xl">{order.note}</p>
+                </div>
+              )}
+              {order.phoneNumber && (
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <Phone className="w-6 h-6 text-primary" />
+                    <h3 className="text-2xl font-semibold">Телефон</h3>
+                  </div>
+                  <p className="text-xl">{order.phoneNumber}</p>
+                </div>
+              )}
+              {order.storeId && (
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <Store className="w-6 h-6 text-primary" />
+                    <h3 className="text-2xl font-semibold">Точка</h3>
+                  </div>
+                  <p className="text-xl">{String(order.storeId)}</p>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
 
         {/* Order Items */}
         <Card className="p-8 mb-12">
