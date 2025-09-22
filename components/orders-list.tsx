@@ -83,7 +83,7 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
   console.log("Готовые заказы:", completedOrders);
   console.log("Отданы за сегодня:", deliveredToday);
   const renderGrid = (list: Order[]) => (
-    <div className="grid grid-cols-3">
+    <div className="grid grid-cols-3 gap-4 md:gap-6">
       {list.map((order) => (
         <Card
           key={order.id}
