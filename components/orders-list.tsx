@@ -78,7 +78,10 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
   const deliveredToday = deliveredOrders.filter((o) =>
     isToday(o.updatedAt ?? o.createdAt)
   );
-
+  console.log("Заказы:", orders);
+  console.log("Новые заказы:", newOrders);
+  console.log("Готовые заказы:", completedOrders);
+  console.log("Отданы за сегодня:", deliveredToday);
   const renderGrid = (list: Order[]) => (
     <div className="grid grid-cols-3">
       {list.map((order) => (
