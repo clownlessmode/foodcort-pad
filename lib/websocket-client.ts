@@ -139,7 +139,12 @@ export class OrdersWebSocketClient {
 
   onNewOrder(callback: (order: unknown) => void): void {
     if (this.socket) {
-      this.socket.on("new_order", callback);
+      this.socket.on("new_order", (order: unknown) => {
+        try {
+          console.log("🧾 Получен заказ (new_order):", order);
+        } catch {}
+        callback(order);
+      });
     }
   }
 
@@ -158,7 +163,23 @@ export class OrdersWebSocketClient {
 
   onOrdersList(callback: (orders: unknown[]) => void): void {
     if (this.socket) {
-      this.socket.on("orders_list", callback);
+      this.socket.on("orders_list", (orders: unknown[]) => {
+        try {
+          const count = Array.isArray(orders) ? orders.length : 0;
+          console.log(
+            "📥 Получен начальный список заказов (orders_list), кол-во:",
+            count
+          );
+          if (Array.isArray(orders)) {
+            orders.forEach((order) => {
+              console.log("🧾 Заказ из начального списка:", order);
+            });
+          } else {
+            console.log("📥 orders_list (raw):", orders);
+          }
+        } catch {}
+        callback(orders);
+      });
     }
   }
 
