@@ -244,27 +244,5 @@ export default function KitchenApp() {
     );
   }
 
-  return (
-    <OrdersList
-      orders={[
-        {
-          id: "1",
-          number: "1",
-          items: [
-            {
-              id: "1",
-              name: "Item 1",
-              quantity: 1,
-            },
-          ],
-          status: "new",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          total: 0,
-          orderType: "takeaway",
-        },
-      ]}
-      onSelectOrder={setSelectedOrder}
-    />
-  );
+  return <OrdersList orders={orders} onSelectOrder={setSelectedOrder} />;
 }
