@@ -4,6 +4,7 @@ export class OrdersWebSocketClient {
   private socket: Socket | null = null;
   private isConnected = false;
   private newOrderAudio: HTMLAudioElement | null = null;
+  private audioUnlocked = false;
 
   constructor(
     private serverUrl: string = process.env.NEXT_PUBLIC_API_URL || ""
@@ -19,9 +20,30 @@ export class OrdersWebSocketClient {
         this.newOrderAudio = new Audio(audioPath);
         this.newOrderAudio.preload = "auto";
         this.newOrderAudio.volume = 1.0;
+        try {
+          this.newOrderAudio.setAttribute("playsinline", "true");
+          (this.newOrderAudio as any).webkitPlaysInline = true;
+        } catch {}
       } catch (e) {
         console.warn("⚠️ Не удалось инициализировать звук нового заказа:", e);
       }
+    }
+  }
+
+  // Вызывать из обработчика жеста пользователя, чтобы разблокировать звук на iOS/Android
+  async unlockAudio(): Promise<void> {
+    if (!this.newOrderAudio) return;
+    if (this.audioUnlocked) return;
+    try {
+      this.newOrderAudio.muted = true;
+      await this.newOrderAudio.play();
+      this.newOrderAudio.pause();
+      this.newOrderAudio.currentTime = 0;
+      this.newOrderAudio.muted = false;
+      this.audioUnlocked = true;
+      console.log("🔊 Звук разблокирован пользователем");
+    } catch (e) {
+      console.warn("⚠️ Не удалось разблокировать звук:", e);
     }
   }
 
@@ -227,5 +249,17 @@ export class OrdersWebSocketClient {
 
   get connected(): boolean {
     return this.isConnected;
+  }
+
+  // Ручное проигрывание звука (для тестовой кнопки)
+  playNewOrderSound(): void {
+    try {
+      if (!this.newOrderAudio) return;
+      this.newOrderAudio.currentTime = 0;
+      const p = this.newOrderAudio.play();
+      if (p && typeof p.catch === "function") {
+        p.catch(() => {});
+      }
+    } catch {}
   }
 }

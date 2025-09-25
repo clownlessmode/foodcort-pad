@@ -238,6 +238,19 @@ export default function KitchenApp() {
         console.log("🔌 WebSocket connected (page)");
         wsRef.current = client;
 
+        // Разблокируем звук при первом пользовательском взаимодействии
+        const unlock = async () => {
+          try {
+            await wsRef.current?.unlockAudio?.();
+          } catch {}
+          window.removeEventListener("pointerdown", unlock);
+          window.removeEventListener("keydown", unlock);
+          window.removeEventListener("touchstart", unlock);
+        };
+        window.addEventListener("pointerdown", unlock, { once: true });
+        window.addEventListener("keydown", unlock, { once: true });
+        window.addEventListener("touchstart", unlock, { once: true });
+
         client.onConnectionConfirmed((data) => {
           console.log("🔗 connection_confirmed:", data);
         });
@@ -299,13 +312,48 @@ export default function KitchenApp() {
 
   if (selectedOrder) {
     return (
-      <OrderDetails
-        order={selectedOrder}
-        onBack={() => setSelectedOrder(null)}
-        onUpdateStatus={updateOrderStatus}
-      />
+      <>
+        <OrderDetails
+          order={selectedOrder}
+          onBack={() => setSelectedOrder(null)}
+          onUpdateStatus={updateOrderStatus}
+        />
+        <TestSoundButton wsRef={wsRef} />
+      </>
     );
   }
 
-  return <OrdersList orders={orders} onSelectOrder={setSelectedOrder} />;
+  return (
+    <>
+      <OrdersList orders={orders} onSelectOrder={setSelectedOrder} />
+      <TestSoundButton wsRef={wsRef} />
+    </>
+  );
+}
+
+// Вспомогательная тестовая кнопка для воспроизведения звука
+function TestSoundButton({
+  wsRef,
+}: {
+  wsRef: React.RefObject<OrdersWebSocketClient | null>;
+}) {
+  return (
+    <button
+      onClick={() => wsRef.current?.playNewOrderSound?.()}
+      style={{
+        position: "fixed",
+        bottom: 16,
+        left: 16,
+        zIndex: 9999,
+        padding: "8px 12px",
+        borderRadius: 8,
+        border: "1px solid var(--border)",
+        background: "var(--background)",
+        color: "var(--foreground)",
+        boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+      }}
+    >
+      ▶︎ Тест звука
+    </button>
+  );
 }
