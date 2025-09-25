@@ -3,10 +3,27 @@ import { io, Socket } from "socket.io-client";
 export class OrdersWebSocketClient {
   private socket: Socket | null = null;
   private isConnected = false;
+  private newOrderAudio: HTMLAudioElement | null = null;
 
   constructor(
     private serverUrl: string = process.env.NEXT_PUBLIC_API_URL || ""
-  ) {}
+  ) {
+    // Настраиваем звук для новых заказов (в браузере)
+    if (typeof window !== "undefined") {
+      try {
+        const base = (process.env.NEXT_PUBLIC_BASE_PATH || "").replace(
+          /\/$/,
+          ""
+        );
+        const audioPath = `${base}/neworder.mp3`;
+        this.newOrderAudio = new Audio(audioPath);
+        this.newOrderAudio.preload = "auto";
+        this.newOrderAudio.volume = 1.0;
+      } catch (e) {
+        console.warn("⚠️ Не удалось инициализировать звук нового заказа:", e);
+      }
+    }
+  }
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -142,6 +159,19 @@ export class OrdersWebSocketClient {
       this.socket.on("new_order", (order: unknown) => {
         try {
           console.log("🧾 Получен заказ (new_order):", order);
+        } catch {}
+        // Пытаемся проиграть звук прихода нового заказа
+        try {
+          if (this.newOrderAudio) {
+            this.newOrderAudio.currentTime = 0;
+            // Некоторые браузеры могут блокировать авто-воспроизведение без взаимодействия пользователя
+            const p = this.newOrderAudio.play();
+            if (p && typeof p.catch === "function") {
+              p.catch(() => {
+                // игнорируем ошибку авто-воспроизведения
+              });
+            }
+          }
         } catch {}
         callback(order);
       });
