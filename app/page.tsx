@@ -337,14 +337,88 @@ function TestSoundButton({
 }: {
   wsRef: React.RefObject<OrdersWebSocketClient | null>;
 }) {
+  const [status, setStatus] = useState<string>("");
+
+  const playBeepFallback = async () => {
+    try {
+      const Ctx: typeof AudioContext | undefined =
+        (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!Ctx) throw new Error("WebAudio недоступен");
+      const ctx = new Ctx();
+      await ctx.resume();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      gain.gain.value = 0.0001;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const now = ctx.currentTime;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.2, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+      osc.start(now);
+      osc.stop(now + 0.25);
+      return true;
+    } catch (e) {
+      console.warn("WebAudio fallback error:", e);
+      return false;
+    }
+  };
+
+  const onClick = async () => {
+    setStatus("Тест начат…");
+    // 1) Разблокировка
+    try {
+      await wsRef.current?.unlockAudio?.();
+      setStatus("Разблокировка выполнена");
+    } catch (e: any) {
+      setStatus(`Не удалось разблокировать звук: ${e?.message || e}`);
+    }
+
+    // 2) Проверка поддержки mp3
+    let canMp3 = false;
+    try {
+      const probe = document.createElement("audio");
+      canMp3 = !!probe.canPlayType && probe.canPlayType("audio/mpeg") !== "";
+    } catch {}
+
+    // 3) Попытка проиграть основной звук
+    try {
+      setStatus("Проигрывание теста…");
+      if (wsRef.current?.playNewOrderSound) {
+        wsRef.current.playNewOrderSound();
+      } else if (canMp3) {
+        const base = (process.env.NEXT_PUBLIC_BASE_PATH || "").replace(
+          /\/$/,
+          ""
+        );
+        const audioPath = `${base}/neworder.mp3`;
+        const a = new Audio(audioPath);
+        a.preload = "auto";
+        try {
+          a.setAttribute("playsinline", "true");
+          (a as any).webkitPlaysInline = true;
+        } catch {}
+        await a.play();
+      } else {
+        // Нет поддержки mp3 — сразу fallback
+        const ok = await playBeepFallback();
+        setStatus(ok ? "Тест закончен (fallback)" : "Ошибка fallback-аудио");
+        return;
+      }
+      setStatus("Тест закончен");
+    } catch (e: any) {
+      console.warn("Тестовый звук не проигрался:", e);
+      // 4) Fallback на WebAudio beep
+      const ok = await playBeepFallback();
+      setStatus(ok ? "Тест закончен (fallback)" : `Ошибка: ${e?.message || e}`);
+    }
+  };
+
   return (
     <button
-      onClick={async () => {
-        try {
-          await wsRef.current?.unlockAudio?.();
-        } catch {}
-        wsRef.current?.playNewOrderSound?.();
-      }}
+      onClick={onClick}
       style={{
         position: "fixed",
         bottom: 16,
@@ -357,9 +431,13 @@ function TestSoundButton({
         color: "var(--foreground)",
         boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
         touchAction: "manipulation",
+        fontSize: 14,
       }}
+      aria-live="polite"
+      aria-label="Тестовый звук"
+      title="Тестовый звук"
     >
-      ▶︎ Тест звука
+      ▶︎ Тест звука{status ? ` — ${status}` : ""}
     </button>
   );
 }
