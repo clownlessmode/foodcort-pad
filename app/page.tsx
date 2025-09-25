@@ -339,7 +339,12 @@ function TestSoundButton({
 }) {
   return (
     <button
-      onClick={() => wsRef.current?.playNewOrderSound?.()}
+      onClick={async () => {
+        try {
+          await wsRef.current?.unlockAudio?.();
+        } catch {}
+        wsRef.current?.playNewOrderSound?.();
+      }}
       style={{
         position: "fixed",
         bottom: 16,
@@ -351,6 +356,7 @@ function TestSoundButton({
         background: "var(--background)",
         color: "var(--foreground)",
         boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+        touchAction: "manipulation",
       }}
     >
       ▶︎ Тест звука

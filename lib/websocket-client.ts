@@ -32,9 +32,22 @@ export class OrdersWebSocketClient {
 
   // Вызывать из обработчика жеста пользователя, чтобы разблокировать звук на iOS/Android
   async unlockAudio(): Promise<void> {
-    if (!this.newOrderAudio) return;
     if (this.audioUnlocked) return;
     try {
+      if (!this.newOrderAudio && typeof window !== "undefined") {
+        const base = (process.env.NEXT_PUBLIC_BASE_PATH || "").replace(
+          /\/$/,
+          ""
+        );
+        const audioPath = `${base}/neworder.mp3`;
+        this.newOrderAudio = new Audio(audioPath);
+        this.newOrderAudio.preload = "auto";
+        try {
+          this.newOrderAudio.setAttribute("playsinline", "true");
+          (this.newOrderAudio as any).webkitPlaysInline = true;
+        } catch {}
+      }
+      if (!this.newOrderAudio) return;
       this.newOrderAudio.muted = true;
       await this.newOrderAudio.play();
       this.newOrderAudio.pause();
@@ -254,6 +267,19 @@ export class OrdersWebSocketClient {
   // Ручное проигрывание звука (для тестовой кнопки)
   playNewOrderSound(): void {
     try {
+      if (!this.newOrderAudio && typeof window !== "undefined") {
+        const base = (process.env.NEXT_PUBLIC_BASE_PATH || "").replace(
+          /\/$/,
+          ""
+        );
+        const audioPath = `${base}/neworder.mp3`;
+        this.newOrderAudio = new Audio(audioPath);
+        this.newOrderAudio.preload = "auto";
+        try {
+          this.newOrderAudio.setAttribute("playsinline", "true");
+          (this.newOrderAudio as any).webkitPlaysInline = true;
+        } catch {}
+      }
       if (!this.newOrderAudio) return;
       this.newOrderAudio.currentTime = 0;
       const p = this.newOrderAudio.play();
