@@ -346,19 +346,30 @@ function TestSoundButton({
       if (!Ctx) throw new Error("WebAudio недоступен");
       const ctx = new Ctx();
       await ctx.resume();
+
+      // Создаем более громкий и заметный звук
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
       osc.frequency.value = 880;
-      gain.gain.value = 0.0001;
+
+      // Увеличиваем громкость fallback звука
+      gain.gain.value = 0.1; // Начальная громкость выше
       osc.connect(gain);
       gain.connect(ctx.destination);
+
       const now = ctx.currentTime;
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.2, now + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+      const duration = 0.5; // Увеличиваем длительность
+
+      // Более заметный звук с резким началом и плавным затуханием
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.exponentialRampToValueAtTime(0.8, now + 0.05); // Максимальная громкость
+      gain.gain.exponentialRampToValueAtTime(0.1, now + duration);
+
       osc.start(now);
-      osc.stop(now + 0.25);
+      osc.stop(now + duration);
+
+      console.log("🔊 Fallback звук воспроизведен (громкий)");
       return true;
     } catch (e) {
       console.warn("WebAudio fallback error:", e);
@@ -368,51 +379,44 @@ function TestSoundButton({
 
   const onClick = async () => {
     setStatus("Тест начат…");
-    // 1) Разблокировка
+
     try {
+      // 1) Разблокировка аудио
+      setStatus("Разблокировка аудио…");
       await wsRef.current?.unlockAudio?.();
-      setStatus("Разблокировка выполнена");
-    } catch (e: any) {
-      setStatus(`Не удалось разблокировать звук: ${e?.message || e}`);
-    }
 
-    // 2) Проверка поддержки mp3
-    let canMp3 = false;
-    try {
-      const probe = document.createElement("audio");
-      canMp3 = !!probe.canPlayType && probe.canPlayType("audio/mpeg") !== "";
-    } catch {}
+      // 2) Используем тот же механизм, что и WebSocket клиент
+      setStatus("Проигрывание звука…");
+      const success = await wsRef.current?.playNewOrderSound?.();
 
-    // 3) Попытка проиграть основной звук
-    try {
-      setStatus("Проигрывание теста…");
-      if (wsRef.current?.playNewOrderSound) {
-        wsRef.current.playNewOrderSound();
-      } else if (canMp3) {
-        const base = (process.env.NEXT_PUBLIC_BASE_PATH || "").replace(
-          /\/$/,
-          ""
-        );
-        const audioPath = `${base}/neworder.mp3`;
-        const a = new Audio(audioPath);
-        a.preload = "auto";
-        try {
-          a.setAttribute("playsinline", "true");
-          (a as any).webkitPlaysInline = true;
-        } catch {}
-        await a.play();
+      if (success) {
+        setStatus("✅ Звук воспроизведен успешно");
+        console.log("🔊 Тестовый звук воспроизведен через WebSocket клиент");
       } else {
-        // Нет поддержки mp3 — сразу fallback
-        const ok = await playBeepFallback();
-        setStatus(ok ? "Тест закончен (fallback)" : "Ошибка fallback-аудио");
-        return;
+        // 3) Fallback только если основной звук не сработал
+        setStatus("Fallback звук…");
+        const fallbackSuccess = await playBeepFallback();
+        setStatus(
+          fallbackSuccess
+            ? "✅ Fallback звук воспроизведен"
+            : "❌ Ошибка воспроизведения"
+        );
       }
-      setStatus("Тест закончен");
     } catch (e: any) {
-      console.warn("Тестовый звук не проигрался:", e);
-      // 4) Fallback на WebAudio beep
-      const ok = await playBeepFallback();
-      setStatus(ok ? "Тест закончен (fallback)" : `Ошибка: ${e?.message || e}`);
+      console.warn("Ошибка тестового звука:", e);
+
+      // 4) Последний fallback на WebAudio
+      try {
+        setStatus("Последний fallback…");
+        const fallbackSuccess = await playBeepFallback();
+        setStatus(
+          fallbackSuccess
+            ? "✅ Fallback звук воспроизведен"
+            : "❌ Все методы не сработали"
+        );
+      } catch (fallbackError) {
+        setStatus(`❌ Ошибка: ${e?.message || e}`);
+      }
     }
   };
 

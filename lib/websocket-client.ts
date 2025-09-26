@@ -528,21 +528,30 @@ export class OrdersWebSocketClient {
       if (!Ctx) return false;
       this.audioContext = this.audioContext || new Ctx();
       await (this.audioContext as AudioContext).resume();
-      const durationSec = 0.25;
+
+      const durationSec = 0.5; // Увеличиваем длительность
       const ctx = this.audioContext as AudioContext;
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
       oscillator.type = "sine";
       oscillator.frequency.value = 880;
-      gainNode.gain.value = 0.0001;
+
+      // Увеличиваем громкость fallback звука
+      gainNode.gain.value = 0.1; // Начальная громкость выше
       oscillator.connect(gainNode);
       gainNode.connect(ctx.destination);
+
       const now = ctx.currentTime;
-      gainNode.gain.setValueAtTime(0.0001, now);
-      gainNode.gain.exponentialRampToValueAtTime(0.2, now + 0.02);
-      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + durationSec);
+
+      // Более заметный звук с резким началом и плавным затуханием
+      gainNode.gain.setValueAtTime(0.1, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.8, now + 0.05); // Максимальная громкость
+      gainNode.gain.exponentialRampToValueAtTime(0.1, now + durationSec);
+
       oscillator.start(now);
       oscillator.stop(now + durationSec);
+
+      console.log("🔊 WebAudio fallback воспроизведен (громкий)");
       return true;
     } catch (e2) {
       console.warn("⚠️ WebAudio fallback не сработал:", e2);
