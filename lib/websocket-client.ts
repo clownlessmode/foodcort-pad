@@ -5,6 +5,18 @@ export class OrdersWebSocketClient {
   private isConnected = false;
   private newOrderAudio: HTMLAudioElement | null = null;
   private audioUnlocked = false;
+  private audioContext: AudioContext | null = null;
+
+  // Heartbeat и переподключение
+  private heartbeatInterval: NodeJS.Timeout | null = null;
+  private reconnectTimeout: NodeJS.Timeout | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 10;
+  private baseReconnectDelay = 1000; // 1 секунда
+  private maxReconnectDelay = 30000; // 30 секунд
+  private heartbeatIntervalMs = 30000; // 30 секунд
+  private lastHeartbeat = Date.now();
+  private isManualDisconnect = false;
 
   constructor(
     private serverUrl: string = process.env.NEXT_PUBLIC_API_URL || ""
@@ -12,11 +24,12 @@ export class OrdersWebSocketClient {
     // Настраиваем звук для новых заказов (в браузере)
     if (typeof window !== "undefined") {
       try {
-        const base = (process.env.NEXT_PUBLIC_BASE_PATH || "").replace(
-          /\/$/,
-          ""
-        );
-        const audioPath = `${base}/neworder.mp3`;
+        const prefixRaw = ((window as any).__NEXT_DATA__?.assetPrefix ||
+          (window as any).__NEXT_DATA__?.basePath ||
+          process.env.NEXT_PUBLIC_BASE_PATH ||
+          "") as string;
+        const prefix = prefixRaw.replace(/\/$/, "");
+        const audioPath = `${prefix}/neworder.mp3`;
         this.newOrderAudio = new Audio(audioPath);
         this.newOrderAudio.preload = "auto";
         this.newOrderAudio.volume = 1.0;
@@ -27,19 +40,122 @@ export class OrdersWebSocketClient {
       } catch (e) {
         console.warn("⚠️ Не удалось инициализировать звук нового заказа:", e);
       }
+
+      // Добавляем обработчик видимости страницы для переподключения
+      this.setupVisibilityHandlers();
+    }
+  }
+
+  // Настройка обработчиков видимости страницы
+  private setupVisibilityHandlers(): void {
+    if (typeof document === "undefined") return;
+
+    document.addEventListener("visibilitychange", () => {
+      if (
+        document.visibilityState === "visible" &&
+        !this.isConnected &&
+        !this.isManualDisconnect
+      ) {
+        console.log("👁️ Страница стала видимой, пытаемся переподключиться...");
+        this.connect();
+      }
+    });
+  }
+
+  // Запуск heartbeat
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.lastHeartbeat = Date.now();
+
+    this.heartbeatInterval = setInterval(() => {
+      if (this.socket && this.isConnected) {
+        // Отправляем ping
+        this.socket.emit("ping");
+        console.log("💓 Heartbeat отправлен");
+
+        // Проверяем, получили ли мы pong в последние 60 секунд
+        const timeSinceLastHeartbeat = Date.now() - this.lastHeartbeat;
+        if (timeSinceLastHeartbeat > 60000) {
+          console.warn("⚠️ Heartbeat timeout, переподключаемся...");
+          this.handleDisconnection();
+        }
+      }
+    }, this.heartbeatIntervalMs);
+  }
+
+  // Остановка heartbeat
+  private stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+  }
+
+  // Обработка отключения
+  private handleDisconnection(): void {
+    this.isConnected = false;
+    this.stopHeartbeat();
+
+    if (
+      !this.isManualDisconnect &&
+      this.reconnectAttempts < this.maxReconnectAttempts
+    ) {
+      this.scheduleReconnect();
+    }
+  }
+
+  // Планирование переподключения с экспоненциальной задержкой
+  private scheduleReconnect(): void {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+    }
+
+    const delay = Math.min(
+      this.baseReconnectDelay * Math.pow(2, this.reconnectAttempts),
+      this.maxReconnectDelay
+    );
+
+    console.log(
+      `🔄 Переподключение через ${delay}ms (попытка ${
+        this.reconnectAttempts + 1
+      }/${this.maxReconnectAttempts})`
+    );
+
+    this.reconnectTimeout = setTimeout(() => {
+      this.reconnectAttempts++;
+      this.connect().catch((error) => {
+        console.error("❌ Ошибка переподключения:", error);
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+          this.scheduleReconnect();
+        } else {
+          console.error(
+            "❌ Максимальное количество попыток переподключения достигнуто"
+          );
+        }
+      });
+    }, delay);
+  }
+
+  // Сброс счетчика попыток переподключения
+  private resetReconnectAttempts(): void {
+    this.reconnectAttempts = 0;
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
     }
   }
 
   // Вызывать из обработчика жеста пользователя, чтобы разблокировать звук на iOS/Android
-  async unlockAudio(): Promise<void> {
-    if (this.audioUnlocked) return;
+  async unlockAudio(): Promise<boolean> {
+    if (this.audioUnlocked) return true;
     try {
       if (!this.newOrderAudio && typeof window !== "undefined") {
-        const base = (process.env.NEXT_PUBLIC_BASE_PATH || "").replace(
-          /\/$/,
-          ""
-        );
-        const audioPath = `${base}/neworder.mp3`;
+        const prefixRaw = ((window as any).__NEXT_DATA__?.assetPrefix ||
+          (window as any).__NEXT_DATA__?.basePath ||
+          process.env.NEXT_PUBLIC_BASE_PATH ||
+          "") as string;
+        const prefix = prefixRaw.replace(/\/$/, "");
+        const audioPath = `${prefix}/neworder.mp3`;
         this.newOrderAudio = new Audio(audioPath);
         this.newOrderAudio.preload = "auto";
         try {
@@ -47,7 +163,7 @@ export class OrdersWebSocketClient {
           (this.newOrderAudio as any).webkitPlaysInline = true;
         } catch {}
       }
-      if (!this.newOrderAudio) return;
+      if (!this.newOrderAudio) return false;
       this.newOrderAudio.muted = true;
       await this.newOrderAudio.play();
       this.newOrderAudio.pause();
@@ -55,13 +171,29 @@ export class OrdersWebSocketClient {
       this.newOrderAudio.muted = false;
       this.audioUnlocked = true;
       console.log("🔊 Звук разблокирован пользователем");
+      return true;
     } catch (e) {
-      console.warn("⚠️ Не удалось разблокировать звук:", e);
+      console.warn("⚠️ Не удалось разблокировать звук (HTMLAudio):", e);
+      try {
+        const Ctx =
+          (window as any)?.AudioContext || (window as any)?.webkitAudioContext;
+        if (Ctx) {
+          this.audioContext = this.audioContext || new Ctx();
+          await (this.audioContext as AudioContext).resume();
+          this.audioUnlocked = true;
+          console.log("🔊 WebAudio разблокирован пользователем");
+          return true;
+        }
+      } catch (e2) {
+        console.warn("⚠️ Не удалось разблокировать WebAudio:", e2);
+      }
+      return false;
     }
   }
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
+      this.isManualDisconnect = false; // Сбрасываем флаг ручного отключения
       // Derive origin and socket path from serverUrl
       let origin = this.serverUrl;
       let socketPath = "/socket.io";
@@ -90,17 +222,21 @@ export class OrdersWebSocketClient {
         path: socketPath,
         timeout: 20000,
         forceNew: true,
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
+        reconnection: false, // Отключаем встроенное переподключение, используем свое
+        reconnectionAttempts: 0,
+        reconnectionDelay: 0,
       });
 
       this.socket.on("connect", () => {
         this.isConnected = true;
+        this.resetReconnectAttempts(); // Сбрасываем счетчик попыток при успешном подключении
         console.log("✅ Подключен к серверу заказов");
         console.log("🔗 Socket ID:", this.socket?.id);
         const transportName = (this.socket as any)?.io?.engine?.transport?.name;
         console.log("🔗 Transport:", transportName);
+
+        // Запускаем heartbeat
+        this.startHeartbeat();
 
         // Автоматически запрашиваем список заказов при подключении
         this.socket?.emit("get_orders");
@@ -112,6 +248,12 @@ export class OrdersWebSocketClient {
       // Обработчик подтверждения подключения от сервера
       this.socket.on("connection_confirmed", (data) => {
         console.log("🔗 Подтверждение подключения от сервера:", data);
+      });
+
+      // Обработчик pong для heartbeat
+      this.socket.on("pong", () => {
+        this.lastHeartbeat = Date.now();
+        console.log("💓 Pong получен");
       });
 
       this.socket.on("connect_error", (error) => {
@@ -143,10 +285,10 @@ export class OrdersWebSocketClient {
       });
 
       this.socket.on("disconnect", (reason) => {
-        this.isConnected = false;
         console.log("❌ ===== ОТКЛЮЧЕНИЕ =====");
         console.log("❌ Причина:", reason);
         console.log("❌ ===== КОНЕЦ ОТКЛЮЧЕНИЯ =====");
+        this.handleDisconnection();
       });
 
       // Обработчик ошибок WebSocket
@@ -173,11 +315,17 @@ export class OrdersWebSocketClient {
   }
 
   disconnect(): void {
+    this.isManualDisconnect = true;
+    this.stopHeartbeat();
+    this.resetReconnectAttempts();
+
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
       this.isConnected = false;
     }
+
+    console.log("🔌 Ручное отключение от WebSocket");
   }
 
   updateOrderStatus(orderId: number, status: string): void {
@@ -195,19 +343,8 @@ export class OrdersWebSocketClient {
         try {
           console.log("🧾 Получен заказ (new_order):", order);
         } catch {}
-        // Пытаемся проиграть звук прихода нового заказа
-        try {
-          if (this.newOrderAudio) {
-            this.newOrderAudio.currentTime = 0;
-            // Некоторые браузеры могут блокировать авто-воспроизведение без взаимодействия пользователя
-            const p = this.newOrderAudio.play();
-            if (p && typeof p.catch === "function") {
-              p.catch(() => {
-                // игнорируем ошибку авто-воспроизведения
-              });
-            }
-          }
-        } catch {}
+        // Проиграть звук с fallback
+        void this.playNewOrderSound();
         callback(order);
       });
     }
@@ -264,15 +401,38 @@ export class OrdersWebSocketClient {
     return this.isConnected;
   }
 
-  // Ручное проигрывание звука (для тестовой кнопки)
-  playNewOrderSound(): void {
+  // Принудительное переподключение
+  forceReconnect(): Promise<void> {
+    console.log("🔄 Принудительное переподключение...");
+    this.disconnect();
+    return this.connect();
+  }
+
+  // Получение статистики подключения
+  getConnectionStats(): {
+    isConnected: boolean;
+    reconnectAttempts: number;
+    lastHeartbeat: number;
+    isManualDisconnect: boolean;
+  } {
+    return {
+      isConnected: this.isConnected,
+      reconnectAttempts: this.reconnectAttempts,
+      lastHeartbeat: this.lastHeartbeat,
+      isManualDisconnect: this.isManualDisconnect,
+    };
+  }
+
+  // Ручное проигрывание звука с fallback
+  async playNewOrderSound(): Promise<boolean> {
     try {
-      if (!this.newOrderAudio && typeof window !== "undefined") {
-        const base = (process.env.NEXT_PUBLIC_BASE_PATH || "").replace(
-          /\/$/,
-          ""
-        );
-        const audioPath = `${base}/neworder.mp3`;
+      if (typeof window !== "undefined" && !this.newOrderAudio) {
+        const prefixRaw = ((window as any).__NEXT_DATA__?.assetPrefix ||
+          (window as any).__NEXT_DATA__?.basePath ||
+          process.env.NEXT_PUBLIC_BASE_PATH ||
+          "") as string;
+        const prefix = prefixRaw.replace(/\/$/, "");
+        const audioPath = `${prefix}/neworder.mp3`;
         this.newOrderAudio = new Audio(audioPath);
         this.newOrderAudio.preload = "auto";
         try {
@@ -280,12 +440,43 @@ export class OrdersWebSocketClient {
           (this.newOrderAudio as any).webkitPlaysInline = true;
         } catch {}
       }
-      if (!this.newOrderAudio) return;
-      this.newOrderAudio.currentTime = 0;
-      const p = this.newOrderAudio.play();
-      if (p && typeof p.catch === "function") {
-        p.catch(() => {});
+      if (this.newOrderAudio) {
+        this.newOrderAudio.currentTime = 0;
+        await this.newOrderAudio.play();
+        return true;
       }
-    } catch {}
+    } catch (e) {
+      console.warn(
+        "⚠️ Проигрывание mp3 не удалось, пробуем WebAudio fallback:",
+        e
+      );
+    }
+
+    try {
+      const Ctx =
+        (window as any)?.AudioContext || (window as any)?.webkitAudioContext;
+      if (!Ctx) return false;
+      this.audioContext = this.audioContext || new Ctx();
+      await (this.audioContext as AudioContext).resume();
+      const durationSec = 0.25;
+      const ctx = this.audioContext as AudioContext;
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.value = 880;
+      gainNode.gain.value = 0.0001;
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      const now = ctx.currentTime;
+      gainNode.gain.setValueAtTime(0.0001, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.2, now + 0.02);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + durationSec);
+      oscillator.start(now);
+      oscillator.stop(now + durationSec);
+      return true;
+    } catch (e2) {
+      console.warn("⚠️ WebAudio fallback не сработал:", e2);
+      return false;
+    }
   }
 }
