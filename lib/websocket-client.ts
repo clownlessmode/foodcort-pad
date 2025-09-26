@@ -7,6 +7,15 @@ export class OrdersWebSocketClient {
   private audioUnlocked = false;
   private audioContext: AudioContext | null = null;
 
+  // Конфигурация аудио форматов с приоритетом
+  private audioFormats = [
+    { ext: "mp3", mime: "audio/mpeg", priority: 1 },
+    { ext: "aac", mime: "audio/aac", priority: 2 },
+    { ext: "wav", mime: "audio/wav", priority: 3 },
+    { ext: "aiff", mime: "audio/aiff", priority: 4 },
+    { ext: "wma", mime: "audio/x-ms-wma", priority: 5 },
+  ];
+
   // Heartbeat и переподключение
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private reconnectTimeout: NodeJS.Timeout | null = null;
@@ -24,19 +33,21 @@ export class OrdersWebSocketClient {
     // Настраиваем звук для новых заказов (в браузере)
     if (typeof window !== "undefined") {
       try {
-        const prefixRaw = ((window as any).__NEXT_DATA__?.assetPrefix ||
-          (window as any).__NEXT_DATA__?.basePath ||
-          process.env.NEXT_PUBLIC_BASE_PATH ||
-          "") as string;
-        const prefix = prefixRaw.replace(/\/$/, "");
-        const audioPath = `${prefix}/neworder.mp3`;
-        this.newOrderAudio = new Audio(audioPath);
-        this.newOrderAudio.preload = "auto";
-        this.newOrderAudio.volume = 1.0;
-        try {
-          this.newOrderAudio.setAttribute("playsinline", "true");
-          (this.newOrderAudio as any).webkitPlaysInline = true;
-        } catch {}
+        const audioPath = this.getAudioPath();
+        if (audioPath) {
+          console.log(`🔊 Инициализация аудио в конструкторе: ${audioPath}`);
+          this.newOrderAudio = new Audio(audioPath);
+          this.newOrderAudio.preload = "auto";
+          this.newOrderAudio.volume = 1.0;
+          try {
+            this.newOrderAudio.setAttribute("playsinline", "true");
+            (this.newOrderAudio as any).webkitPlaysInline = true;
+          } catch {}
+        } else {
+          console.warn(
+            "⚠️ Не удалось определить поддерживаемый аудио формат в конструкторе"
+          );
+        }
       } catch (e) {
         console.warn("⚠️ Не удалось инициализировать звук нового заказа:", e);
       }
@@ -145,17 +156,49 @@ export class OrdersWebSocketClient {
     }
   }
 
+  // Проверка поддержки аудио форматов браузером
+  private getSupportedAudioFormat(): string | null {
+    if (typeof window === "undefined") return null;
+
+    const audio = document.createElement("audio");
+
+    for (const format of this.audioFormats) {
+      if (audio.canPlayType(format.mime) !== "") {
+        console.log(`✅ Поддерживается формат: ${format.ext} (${format.mime})`);
+        return format.ext;
+      }
+    }
+
+    console.warn("⚠️ Ни один аудио формат не поддерживается браузером");
+    return null;
+  }
+
+  // Получение пути к аудио файлу с учетом поддерживаемого формата
+  private getAudioPath(): string | null {
+    const supportedFormat = this.getSupportedAudioFormat();
+    if (!supportedFormat) return null;
+
+    const prefixRaw = ((window as any).__NEXT_DATA__?.assetPrefix ||
+      (window as any).__NEXT_DATA__?.basePath ||
+      process.env.NEXT_PUBLIC_BASE_PATH ||
+      "") as string;
+    const prefix = prefixRaw.replace(/\/$/, "");
+
+    return `${prefix}/neworder.${supportedFormat}`;
+  }
+
   // Вызывать из обработчика жеста пользователя, чтобы разблокировать звук на iOS/Android
   async unlockAudio(): Promise<boolean> {
     if (this.audioUnlocked) return true;
     try {
       if (!this.newOrderAudio && typeof window !== "undefined") {
-        const prefixRaw = ((window as any).__NEXT_DATA__?.assetPrefix ||
-          (window as any).__NEXT_DATA__?.basePath ||
-          process.env.NEXT_PUBLIC_BASE_PATH ||
-          "") as string;
-        const prefix = prefixRaw.replace(/\/$/, "");
-        const audioPath = `${prefix}/neworder.mp3`;
+        const audioPath = this.getAudioPath();
+        if (!audioPath) {
+          console.warn("⚠️ Не удалось определить поддерживаемый аудио формат");
+          return false;
+        }
+
+        console.log(`🔊 Инициализация аудио: ${audioPath}`);
         this.newOrderAudio = new Audio(audioPath);
         this.newOrderAudio.preload = "auto";
         try {
@@ -423,16 +466,43 @@ export class OrdersWebSocketClient {
     };
   }
 
+  // Получение информации о поддерживаемых аудио форматах
+  getAudioFormatInfo(): {
+    supportedFormat: string | null;
+    audioPath: string | null;
+    allFormats: Array<{ ext: string; mime: string; supported: boolean }>;
+  } {
+    const supportedFormat = this.getSupportedAudioFormat();
+    const audioPath = this.getAudioPath();
+
+    const allFormats = this.audioFormats.map((format) => ({
+      ext: format.ext,
+      mime: format.mime,
+      supported:
+        typeof window !== "undefined" &&
+        document.createElement("audio").canPlayType(format.mime) !== "",
+    }));
+
+    return {
+      supportedFormat,
+      audioPath,
+      allFormats,
+    };
+  }
+
   // Ручное проигрывание звука с fallback
   async playNewOrderSound(): Promise<boolean> {
     try {
       if (typeof window !== "undefined" && !this.newOrderAudio) {
-        const prefixRaw = ((window as any).__NEXT_DATA__?.assetPrefix ||
-          (window as any).__NEXT_DATA__?.basePath ||
-          process.env.NEXT_PUBLIC_BASE_PATH ||
-          "") as string;
-        const prefix = prefixRaw.replace(/\/$/, "");
-        const audioPath = `${prefix}/neworder.mp3`;
+        const audioPath = this.getAudioPath();
+        if (!audioPath) {
+          console.warn(
+            "⚠️ Не удалось определить поддерживаемый аудио формат для воспроизведения"
+          );
+          return false;
+        }
+
+        console.log(`🔊 Создание аудио для воспроизведения: ${audioPath}`);
         this.newOrderAudio = new Audio(audioPath);
         this.newOrderAudio.preload = "auto";
         try {
