@@ -6,6 +6,7 @@ export class OrdersWebSocketClient {
   private newOrderAudio: HTMLAudioElement | null = null;
   private audioUnlocked = false;
   private audioContext: AudioContext | null = null;
+  private idStore: number | null = null;
 
   // Конфигурация аудио форматов с приоритетом
   private audioFormats = [
@@ -234,7 +235,28 @@ export class OrdersWebSocketClient {
     }
   }
 
+  private getIdStore(): number | null {
+    if (typeof window === "undefined") return null;
+
+    try {
+      const terminalDataStr = localStorage.getItem("terminal");
+      if (terminalDataStr) {
+        const terminalData = JSON.parse(terminalDataStr);
+        return terminalData.idStore || null;
+      }
+    } catch (e) {
+      console.warn("Ошибка при получении idStore:", e);
+    }
+    return null;
+  }
+
   connect(): Promise<void> {
+    this.idStore = this.getIdStore();
+    console.log("🔍 idStore:", this.idStore);
+    if (!this.idStore) {
+      return Promise.reject(new Error("Нет idStore в localStorage"));
+    }
+
     return new Promise((resolve, reject) => {
       this.isManualDisconnect = false; // Сбрасываем флаг ручного отключения
       // Derive origin and socket path from serverUrl
@@ -281,9 +303,15 @@ export class OrdersWebSocketClient {
         // Запускаем heartbeat
         this.startHeartbeat();
 
-        // Автоматически запрашиваем список заказов при подключении
-        this.socket?.emit("get_orders");
-        console.log("📋 Запрашиваем список заказов...");
+        this.idStore = this.getIdStore();
+        console.log("🔍 idStore:", this.idStore);
+        if (this.idStore) {
+          // Автоматически запрашиваем список заказов при подключении
+          this.socket?.emit("get_orders", this.idStore);
+          console.log("📋 Запрашиваем список заказов...");
+        } else {
+          console.error("❌ Не удалось получить получить данные о заказах");
+        }
 
         resolve();
       });
@@ -377,19 +405,25 @@ export class OrdersWebSocketClient {
   }
 
   getOrders(): void {
-    this.socket?.emit("get_orders");
+    this.socket?.emit("get_orders", this.idStore);
   }
 
   onNewOrder(callback: (order: unknown) => void): void {
     if (this.socket) {
-      this.socket.on("new_order", (order: unknown) => {
-        try {
-          console.log("🧾 Получен заказ (new_order):", order);
-        } catch {}
-        // Проиграть звук с fallback
-        void this.playNewOrderSound();
-        callback(order);
-      });
+      this.idStore = this.getIdStore();
+
+      if (this.idStore) {
+        this.socket.on(`new_order_${this.idStore}`, (order: unknown) => {
+          try {
+            console.log("🧾 Получен заказ (new_order):", order);
+          } catch {}
+          // Проиграть звук с fallback
+          void this.playNewOrderSound();
+          callback(order);
+        });
+      } else {
+        console.error("❌ Не удалось получить получить данные о заказах");
+      }
     }
   }
 
@@ -408,7 +442,7 @@ export class OrdersWebSocketClient {
 
   onOrdersList(callback: (orders: unknown[]) => void): void {
     if (this.socket) {
-      this.socket.on("orders_list", (orders: unknown[]) => {
+      this.socket.on(`orders_list_${this.idStore}`, (orders: unknown[]) => {
         try {
           const count = Array.isArray(orders) ? orders.length : 0;
           console.log(

@@ -4,6 +4,7 @@ import { GeistMono } from "geist/font/mono";
 
 import "./globals.css";
 import PwaSwRegister from "./pwa-sw-register";
+import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: "v0 App",
@@ -32,6 +33,7 @@ export default function RootLayout({
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         <PwaSwRegister />
         {children}
+        <Toaster />
       </body>
     </html>
   );

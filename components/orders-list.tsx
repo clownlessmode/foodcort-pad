@@ -2,9 +2,12 @@
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Package } from "lucide-react";
+import { Clock, Package, SettingsIcon } from "lucide-react";
 import type { Order } from "@/app/page";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Settings } from "./settings";
+import { useEffect, useState } from "react";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 
 interface OrdersListProps {
   orders: Order[];
@@ -57,6 +60,10 @@ const formatTime = (dateLike: Date | string) => {
 };
 
 export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
+  const [configured, setConfigured] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("settings");
+  const terminalDataStr = useLocalStorage("terminal");
+
   const isToday = (date: Date) => {
     const d = date;
     const now = new Date();
@@ -87,10 +94,45 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
       </Badge>
     );
   };
+
+  // Отправка события при первом монтировании компонента
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new Event("localStorageChange"));
+  }, []);
+
+  // Активация основных табов при наличии данных о кодах терминала и телевизора в localStorage
+  useEffect(() => {
+    if (!terminalDataStr) {
+      setConfigured(false);
+      setActiveTab("settings");
+      return;
+    }
+
+    try {
+      const terminalDataParsed = JSON.parse(terminalDataStr);
+      if (
+        terminalDataParsed.code &&
+        terminalDataParsed.tvCode &&
+        terminalDataParsed.idStore
+      ) {
+        setConfigured(true);
+        setActiveTab((prev) => (prev === "settings" ? "new" : prev));
+      } else {
+        setConfigured(false);
+        setActiveTab("settings");
+      }
+    } catch (e) {
+      setConfigured(false);
+      setActiveTab("settings");
+    }
+  }, [terminalDataStr]);
+
   console.log("Заказы:", orders);
   console.log("Новые заказы:", newOrders);
   console.log("Готовые заказы:", completedOrders);
   console.log("Отданы за сегодня:", deliveredToday);
+  
   const renderGrid = (list: Order[]) => (
     <div className="grid grid-cols-3 gap-4 md:gap-6">
       {list.map((order) => (
@@ -132,25 +174,34 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-7xl mx-auto">
-        <Tabs defaultValue="new">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-3 flex gap-6 p-4 md:p-6 rounded-xl w-full !px-0 ">
             <TabsTrigger
+              disabled={!configured}
               value="new"
               className="text-2xl md:text-3xl md:px-10 py-5 md:py-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
               Новые {newOrders.length > 0 ? newOrders.length : ""}
             </TabsTrigger>
             <TabsTrigger
+              disabled={!configured}
               value="completed"
               className="text-2xl md:text-3xl px-8 md:px-10 py-5 md:py-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
               Готовые {completedOrders.length > 0 ? completedOrders.length : ""}
             </TabsTrigger>
             <TabsTrigger
+              disabled={!configured}
               value="delivered_today"
               className="text-2xl md:text-3xl px-8 md:px-10 py-5 md:py-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
               Отданы {deliveredToday.length > 0 ? deliveredToday.length : ""}
+            </TabsTrigger>
+            <TabsTrigger
+              value="settings"
+              className="max-w-max px-8 py-5 md:py-6 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              <SettingsIcon className="size-6" />
             </TabsTrigger>
           </TabsList>
 
@@ -200,6 +251,10 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
                 </p>
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="settings">
+            <Settings />
           </TabsContent>
         </Tabs>
       </div>
