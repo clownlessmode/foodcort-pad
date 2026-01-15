@@ -7,6 +7,7 @@ export class OrdersWebSocketClient {
   private audioUnlocked = false;
   private audioContext: AudioContext | null = null;
   private idStore: number | null = null;
+  private storageWatcherInitialized = false;
 
   // Конфигурация аудио форматов с приоритетом
   private audioFormats = [
@@ -55,9 +56,65 @@ export class OrdersWebSocketClient {
 
       // Добавляем обработчик видимости страницы для переподключения
       this.setupVisibilityHandlers();
+      
+      // Добавляем отслеживание изменений localStorage
+      this.setupLocalStorageWatcher();
     }
   }
 
+  // Настройка отслеживания изменений localStorage
+  private setupLocalStorageWatcher(): void {
+    if (this.storageWatcherInitialized) return;
+    this.storageWatcherInitialized = true;
+
+    const checkAndReconnect = () => {
+      const newIdStore = this.getIdStore();
+      
+      // Если idStore появился и его не было раньше
+      if (newIdStore && !this.idStore) {
+        console.log("🔄 Обнаружен idStore в localStorage, подключаемся...");
+        
+        // Подключаемся
+        this.connect().catch((error) => {
+          console.error("❌ Ошибка при автоматическом подключении:", error);
+        });
+      }
+      // Если idStore изменился и мы уже подключены
+      else if (newIdStore && this.idStore && newIdStore !== this.idStore) {
+        console.log("🔄 idStore изменился, переподключаемся...");
+        
+        // Отключаемся и подключаемся заново
+        this.disconnect();
+        this.connect().catch((error) => {
+          console.error("❌ Ошибка при автоматическом переподключении:", error);
+        });
+      }
+      // Если idStore появился, но мы не подключены
+      else if (newIdStore && !this.isConnected) {
+        console.log("🔄 idStore найден, но нет подключения, подключаемся...");
+        
+        this.connect().catch((error) => {
+          console.error("❌ Ошибка при автоматическом подключении:", error);
+        });
+      }
+    };
+
+    // Слушаем изменения из других вкладок/окон
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "terminal" || e.key === null) {
+        checkAndReconnect();
+      }
+    };
+
+    // Слушаем изменения в текущей вкладке
+    const handleCustomChange = () => {
+      checkAndReconnect();
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("localStorageChange", handleCustomChange);
+  }
+  
   // Настройка обработчиков видимости страницы
   private setupVisibilityHandlers(): void {
     if (typeof document === "undefined") return;
@@ -185,7 +242,7 @@ export class OrdersWebSocketClient {
       "") as string;
     const prefix = prefixRaw.replace(/\/$/, "");
 
-    return `${prefix}/neworder.${supportedFormat}`;
+    return `${prefix}/grill-terminal/neworder.${supportedFormat}`;
   }
 
   // Вызывать из обработчика жеста пользователя, чтобы разблокировать звук на iOS/Android
@@ -252,7 +309,6 @@ export class OrdersWebSocketClient {
 
   connect(): Promise<void> {
     this.idStore = this.getIdStore();
-    console.log("🔍 idStore:", this.idStore);
     if (!this.idStore) {
       return Promise.reject(new Error("Нет idStore в localStorage"));
     }
@@ -304,7 +360,6 @@ export class OrdersWebSocketClient {
         this.startHeartbeat();
 
         this.idStore = this.getIdStore();
-        console.log("🔍 idStore:", this.idStore);
         if (this.idStore) {
           // Автоматически запрашиваем список заказов при подключении
           this.socket?.emit("get_orders", this.idStore);

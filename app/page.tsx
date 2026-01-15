@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { OrdersList } from "@/components/orders-list";
 import { OrderDetails } from "@/components/order-details";
 import { OrdersWebSocketClient } from "@/lib/websocket-client";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 
 export type OrderStatus = "new" | "completed" | "cancelled" | "delivered";
 
@@ -34,6 +35,7 @@ export default function KitchenApp() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const wsRef = useRef<OrdersWebSocketClient | null>(null);
+  const terminalData = useLocalStorage("terminal");
 
   const updateOrderStatus = (orderId: string, status: OrderStatus) => {
     // Emit to server
@@ -239,17 +241,19 @@ export default function KitchenApp() {
         wsRef.current = client;
 
         // Разблокируем звук при первом пользовательском взаимодействии
-        const unlock = async () => {
+        const unlock = async (e: Event) => {
           try {
             await wsRef.current?.unlockAudio?.();
           } catch {}
           window.removeEventListener("pointerdown", unlock);
           window.removeEventListener("keydown", unlock);
           window.removeEventListener("touchstart", unlock);
+          window.removeEventListener("click", unlock);
         };
         window.addEventListener("pointerdown", unlock, { once: true });
         window.addEventListener("keydown", unlock, { once: true });
         window.addEventListener("touchstart", unlock, { once: true });
+        window.addEventListener("click", unlock, { once: true });
 
         client.onConnectionConfirmed((data) => {
           console.log("🔗 connection_confirmed:", data);
@@ -308,7 +312,7 @@ export default function KitchenApp() {
       client.disconnect();
       wsRef.current = null;
     };
-  }, []);
+  }, [terminalData]);
 
   if (selectedOrder) {
     return (

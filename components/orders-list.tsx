@@ -111,13 +111,11 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
 
     try {
       const terminalDataParsed = JSON.parse(terminalDataStr);
-      if (
-        terminalDataParsed.code &&
-        terminalDataParsed.tvCode &&
-        terminalDataParsed.idStore
-      ) {
+      if (terminalDataParsed.code && terminalDataParsed.idStore) {
         setConfigured(true);
-        setActiveTab((prev) => (prev === "settings" ? "new" : prev));
+        if (terminalDataParsed.tvCode) {
+          setActiveTab("new");
+        }
       } else {
         setConfigured(false);
         setActiveTab("settings");
@@ -132,7 +130,7 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
   console.log("Новые заказы:", newOrders);
   console.log("Готовые заказы:", completedOrders);
   console.log("Отданы за сегодня:", deliveredToday);
-  
+
   const renderGrid = (list: Order[]) => (
     <div className="grid grid-cols-3 gap-4 md:gap-6">
       {list.map((order) => (
