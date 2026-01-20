@@ -58,6 +58,11 @@ export default function KitchenApp() {
 
   // Temporary websocket hook-in: just log orders/events to console
   useEffect(() => {
+    if (!terminalData) {
+      console.log("⏳ Ожидание данных терминала для подключения...");
+      return;
+    }
+
     const client = new OrdersWebSocketClient();
 
     type ServerOrder = {
@@ -150,9 +155,9 @@ export default function KitchenApp() {
                 : `Товар ${index + 1}`;
             const quantity = Number(
               (anyP["quantity"] as number) ??
-                (anyP["qty"] as number) ??
-                (anyP["count"] as number) ??
-                1
+              (anyP["qty"] as number) ??
+              (anyP["count"] as number) ??
+              1
             );
             // Map include -> addons and merge exclude/comment -> comment
             let addons: string[] | undefined;
@@ -168,8 +173,8 @@ export default function KitchenApp() {
                     "";
                   const incCount = Number(
                     (incAny["count"] as number) ??
-                      (incAny["quantity"] as number) ??
-                      1
+                    (incAny["quantity"] as number) ??
+                    1
                   );
                   if (!incName) return "";
                   return incCount > 1 ? `${incName} x${incCount}` : incName;
@@ -194,7 +199,7 @@ export default function KitchenApp() {
             return {
               id: String(
                 (anyP["id"] as string | number) ??
-                  `${String(idValue ?? "unknown")}-${index}`
+                `${String(idValue ?? "unknown")}-${index}`
               ),
               name,
               quantity,
@@ -244,7 +249,7 @@ export default function KitchenApp() {
         const unlock = async (e: Event) => {
           try {
             await wsRef.current?.unlockAudio?.();
-          } catch {}
+          } catch { }
           window.removeEventListener("pointerdown", unlock);
           window.removeEventListener("keydown", unlock);
           window.removeEventListener("touchstart", unlock);
@@ -295,10 +300,10 @@ export default function KitchenApp() {
             prev.map((o) =>
               o.id === String(update.orderId)
                 ? {
-                    ...o,
-                    status: update.status as OrderStatus,
-                    updatedAt: new Date(),
-                  }
+                  ...o,
+                  status: update.status as OrderStatus,
+                  updatedAt: new Date(),
+                }
                 : o
             )
           );

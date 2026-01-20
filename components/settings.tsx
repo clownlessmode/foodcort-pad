@@ -180,7 +180,7 @@ export const Settings = () => {
   };
 
   return (
-    <form className="w-[80vw] mx-auto min-h-[80vh] flex flex-col items-center justify-center gap-20">
+    <form className="w-[80%] mx-auto min-h-[80vh] flex flex-col items-center justify-center gap-20">
       <Form {...form}>
         <FormField
           control={form.control}
