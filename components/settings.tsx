@@ -114,10 +114,12 @@ export const Settings = () => {
     }
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/foodcord/device-communication/find-one-terminal-pad/${terminalCode}`
-      );
+      const baseUrl =
+        process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
+        "https://statosphera.ru/api/foodcord";
+      const url = `${baseUrl}/device-communication/find-one-terminal-pad/${terminalCode}`;
 
+      const response = await fetch(url);
       const data = (await response.json()) as ApiResponse;
 
       if (data.idStore && data.success) {
@@ -143,18 +145,21 @@ export const Settings = () => {
     }
 
     try {
-      await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/foodcord/device-communication/find-one-tv-pad`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            idStore,
-            code: tvCode,
-          }),
-        }
+      const baseUrl =
+        process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
+        "https://statosphera.ru/api/foodcord";
+      const url = `${baseUrl}/device-communication/find-one-tv-pad`;
+      
+      await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          idStore,
+          code: tvCode,
+        }),
+      }
       ).then(() => {
         const terminalData = getTerminalData();
         saveTerminalData({
