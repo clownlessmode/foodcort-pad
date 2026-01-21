@@ -63,7 +63,13 @@ export default function KitchenApp() {
       return;
     }
 
+    if (wsRef.current) {
+      wsRef.current.disconnect();
+      wsRef.current = null;
+    }
+
     const client = new OrdersWebSocketClient();
+    wsRef.current = client;
 
     type ServerOrder = {
       id?: string | number;

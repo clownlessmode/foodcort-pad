@@ -18,15 +18,11 @@ export class OrdersWebSocketClient {
     { ext: "wma", mime: "audio/x-ms-wma", priority: 5 },
   ];
 
-  // Heartbeat и переподключение
-  private heartbeatInterval: NodeJS.Timeout | null = null;
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
   private baseReconnectDelay = 1000; // 1 секунда
   private maxReconnectDelay = 30000; // 30 секунд
-  private heartbeatIntervalMs = 30000; // 30 секунд
-  private lastHeartbeat = Date.now();
   private isManualDisconnect = false;
 
   constructor(
@@ -131,39 +127,8 @@ export class OrdersWebSocketClient {
     });
   }
 
-  // Запуск heartbeat
-  private startHeartbeat(): void {
-    this.stopHeartbeat();
-    this.lastHeartbeat = Date.now();
-
-    this.heartbeatInterval = setInterval(() => {
-      if (this.socket && this.isConnected) {
-        // Отправляем ping
-        this.socket.emit("ping");
-        console.log("💓 Heartbeat отправлен");
-
-        // Проверяем, получили ли мы pong в последние 60 секунд
-        const timeSinceLastHeartbeat = Date.now() - this.lastHeartbeat;
-        if (timeSinceLastHeartbeat > 60000) {
-          console.warn("⚠️ Heartbeat timeout, переподключаемся...");
-          this.handleDisconnection();
-        }
-      }
-    }, this.heartbeatIntervalMs);
-  }
-
-  // Остановка heartbeat
-  private stopHeartbeat(): void {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
-    }
-  }
-
-  // Обработка отключения
   private handleDisconnection(): void {
     this.isConnected = false;
-    this.stopHeartbeat();
 
     if (
       !this.isManualDisconnect &&
@@ -343,9 +308,11 @@ export class OrdersWebSocketClient {
         path: socketPath,
         timeout: 20000,
         forceNew: true,
-        reconnection: false, // Отключаем встроенное переподключение, используем свое
-        reconnectionAttempts: 0,
-        reconnectionDelay: 0,
+        reconnection: true,
+        reconnectionAttempts: Infinity, // Бесконечные попытки переподключения
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 10000, // Максимальная задержка 10 секунд
+        randomizationFactor: 0.5,
       });
 
       this.socket.on("connect", () => {
@@ -355,9 +322,6 @@ export class OrdersWebSocketClient {
         console.log("🔗 Socket ID:", this.socket?.id);
         const transportName = (this.socket as any)?.io?.engine?.transport?.name;
         console.log("🔗 Transport:", transportName);
-
-        // Запускаем heartbeat
-        this.startHeartbeat();
 
         this.idStore = this.getIdStore();
         if (this.idStore) {
@@ -374,12 +338,6 @@ export class OrdersWebSocketClient {
       // Обработчик подтверждения подключения от сервера
       this.socket.on("connection_confirmed", (data) => {
         console.log("🔗 Подтверждение подключения от сервера:", data);
-      });
-
-      // Обработчик pong для heartbeat
-      this.socket.on("pong", () => {
-        this.lastHeartbeat = Date.now();
-        console.log("💓 Pong получен");
       });
 
       this.socket.on("connect_error", (error) => {
@@ -414,7 +372,12 @@ export class OrdersWebSocketClient {
         console.log("❌ ===== ОТКЛЮЧЕНИЕ =====");
         console.log("❌ Причина:", reason);
         console.log("❌ ===== КОНЕЦ ОТКЛЮЧЕНИЯ =====");
-        this.handleDisconnection();
+
+        this.isConnected = false;
+
+        if (!this.isManualDisconnect) {
+          this.handleDisconnection();
+        }
       });
 
       // Обработчик ошибок WebSocket
@@ -442,7 +405,6 @@ export class OrdersWebSocketClient {
 
   disconnect(): void {
     this.isManualDisconnect = true;
-    this.stopHeartbeat();
     this.resetReconnectAttempts();
 
     if (this.socket) {
@@ -544,13 +506,11 @@ export class OrdersWebSocketClient {
   getConnectionStats(): {
     isConnected: boolean;
     reconnectAttempts: number;
-    lastHeartbeat: number;
     isManualDisconnect: boolean;
   } {
     return {
       isConnected: this.isConnected,
       reconnectAttempts: this.reconnectAttempts,
-      lastHeartbeat: this.lastHeartbeat,
       isManualDisconnect: this.isManualDisconnect,
     };
   }
