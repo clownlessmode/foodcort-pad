@@ -79,7 +79,7 @@ export const Settings = () => {
 
     try {
       const baseUrl =
-        process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "/api/foodcord") || "";
+        `${process.env.NEXT_PUBLIC_API_URL}/api/foodcord`?.replace(/\/$/, "") || "";
       const url = `${baseUrl}/device-communication/find-one-terminal-pad/${terminalCode}`;
 
       const response = await fetch(url);
@@ -109,7 +109,7 @@ export const Settings = () => {
 
     try {
       const baseUrl =
-        process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "/api/foodcord") || "";
+        `${process.env.NEXT_PUBLIC_API_URL}/api/foodcord`?.replace(/\/$/, "") || "";
       const url = `${baseUrl}/device-communication/find-one-tv-pad`;
       
       await fetch(url, {
