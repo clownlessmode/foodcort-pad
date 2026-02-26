@@ -141,7 +141,7 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
         >
           <div className="flex items-center justify-between ">
             <h2 className="text-xl font-bold text-foreground">
-              Заказ {order.number}
+              Заказ {order.dailyId}
             </h2>
             <Badge
               className={`text-sm px-2 py-1 ${getStatusColor(order.status)}`}

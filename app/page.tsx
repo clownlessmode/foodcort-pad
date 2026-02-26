@@ -18,6 +18,7 @@ export type OrderItem = {
 
 export type Order = {
   id: string;
+  dailyId: string;
   number: string;
   items: OrderItem[];
   status: OrderStatus;
@@ -73,6 +74,8 @@ export default function KitchenApp() {
 
     type ServerOrder = {
       id?: string | number;
+      daily_id?: string | number;
+      dailyId?: string | number;
       orderId?: string | number;
       id_store?: string | number;
       idStore?: string | number;
@@ -132,6 +135,7 @@ export default function KitchenApp() {
 
     const mapServerOrderToLocal = (src: ServerOrder): Order => {
       const idValue = src.id ?? src.orderId;
+      const dailyIdValue = src.daily_id ?? src.dailyId;
       const createdAtIso = src.create_at || src.created_at || src.createdAt;
       const updatedAtIso = src.updated_at || src.updatedAt;
       const rawProducts = src.products;
@@ -218,6 +222,7 @@ export default function KitchenApp() {
 
       const mapped: Order = {
         id: String(idValue ?? ""),
+        dailyId: String(dailyIdValue ?? ""),
         number: String(idValue ?? ""),
         items,
         status: (src.status as OrderStatus) || "new",
