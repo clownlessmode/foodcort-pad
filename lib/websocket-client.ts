@@ -6,6 +6,8 @@ export class OrdersWebSocketClient {
   private newOrderAudio: HTMLAudioElement | null = null;
   private audioUnlocked = false;
   private audioContext: AudioContext | null = null;
+  private idStore: number | null = null;
+  private storageWatcherInitialized = false;
 
   // Конфигурация аудио форматов с приоритетом
   private audioFormats = [
@@ -16,15 +18,11 @@ export class OrdersWebSocketClient {
     { ext: "wma", mime: "audio/x-ms-wma", priority: 5 },
   ];
 
-  // Heartbeat и переподключение
-  private heartbeatInterval: NodeJS.Timeout | null = null;
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
   private baseReconnectDelay = 1000; // 1 секунда
   private maxReconnectDelay = 30000; // 30 секунд
-  private heartbeatIntervalMs = 30000; // 30 секунд
-  private lastHeartbeat = Date.now();
   private isManualDisconnect = false;
 
   constructor(
@@ -54,9 +52,65 @@ export class OrdersWebSocketClient {
 
       // Добавляем обработчик видимости страницы для переподключения
       this.setupVisibilityHandlers();
+      
+      // Добавляем отслеживание изменений localStorage
+      this.setupLocalStorageWatcher();
     }
   }
 
+  // Настройка отслеживания изменений localStorage
+  private setupLocalStorageWatcher(): void {
+    if (this.storageWatcherInitialized) return;
+    this.storageWatcherInitialized = true;
+
+    const checkAndReconnect = () => {
+      const newIdStore = this.getIdStore();
+      
+      // Если idStore появился и его не было раньше
+      if (newIdStore && !this.idStore) {
+        console.log("🔄 Обнаружен idStore в localStorage, подключаемся...");
+        
+        // Подключаемся
+        this.connect().catch((error) => {
+          console.error("❌ Ошибка при автоматическом подключении:", error);
+        });
+      }
+      // Если idStore изменился и мы уже подключены
+      else if (newIdStore && this.idStore && newIdStore !== this.idStore) {
+        console.log("🔄 idStore изменился, переподключаемся...");
+        
+        // Отключаемся и подключаемся заново
+        this.disconnect();
+        this.connect().catch((error) => {
+          console.error("❌ Ошибка при автоматическом переподключении:", error);
+        });
+      }
+      // Если idStore появился, но мы не подключены
+      else if (newIdStore && !this.isConnected) {
+        console.log("🔄 idStore найден, но нет подключения, подключаемся...");
+        
+        this.connect().catch((error) => {
+          console.error("❌ Ошибка при автоматическом подключении:", error);
+        });
+      }
+    };
+
+    // Слушаем изменения из других вкладок/окон
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "terminal" || e.key === null) {
+        checkAndReconnect();
+      }
+    };
+
+    // Слушаем изменения в текущей вкладке
+    const handleCustomChange = () => {
+      checkAndReconnect();
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("localStorageChange", handleCustomChange);
+  }
+  
   // Настройка обработчиков видимости страницы
   private setupVisibilityHandlers(): void {
     if (typeof document === "undefined") return;
@@ -73,39 +127,8 @@ export class OrdersWebSocketClient {
     });
   }
 
-  // Запуск heartbeat
-  private startHeartbeat(): void {
-    this.stopHeartbeat();
-    this.lastHeartbeat = Date.now();
-
-    this.heartbeatInterval = setInterval(() => {
-      if (this.socket && this.isConnected) {
-        // Отправляем ping
-        this.socket.emit("ping");
-        console.log("💓 Heartbeat отправлен");
-
-        // Проверяем, получили ли мы pong в последние 60 секунд
-        const timeSinceLastHeartbeat = Date.now() - this.lastHeartbeat;
-        if (timeSinceLastHeartbeat > 60000) {
-          console.warn("⚠️ Heartbeat timeout, переподключаемся...");
-          this.handleDisconnection();
-        }
-      }
-    }, this.heartbeatIntervalMs);
-  }
-
-  // Остановка heartbeat
-  private stopHeartbeat(): void {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
-    }
-  }
-
-  // Обработка отключения
   private handleDisconnection(): void {
     this.isConnected = false;
-    this.stopHeartbeat();
 
     if (
       !this.isManualDisconnect &&
@@ -184,7 +207,7 @@ export class OrdersWebSocketClient {
       "") as string;
     const prefix = prefixRaw.replace(/\/$/, "");
 
-    return `${prefix}/neworder.${supportedFormat}`;
+    return `${prefix}/grill-terminal/neworder.${supportedFormat}`;
   }
 
   // Вызывать из обработчика жеста пользователя, чтобы разблокировать звук на iOS/Android
@@ -234,7 +257,27 @@ export class OrdersWebSocketClient {
     }
   }
 
+  private getIdStore(): number | null {
+    if (typeof window === "undefined") return null;
+
+    try {
+      const terminalDataStr = localStorage.getItem("terminal");
+      if (terminalDataStr) {
+        const terminalData = JSON.parse(terminalDataStr);
+        return terminalData.idStore || null;
+      }
+    } catch (e) {
+      console.warn("Ошибка при получении idStore:", e);
+    }
+    return null;
+  }
+
   connect(): Promise<void> {
+    this.idStore = this.getIdStore();
+    if (!this.idStore) {
+      return Promise.reject(new Error("Нет idStore в localStorage"));
+    }
+
     return new Promise((resolve, reject) => {
       this.isManualDisconnect = false; // Сбрасываем флаг ручного отключения
       // Derive origin and socket path from serverUrl
@@ -265,9 +308,11 @@ export class OrdersWebSocketClient {
         path: socketPath,
         timeout: 20000,
         forceNew: true,
-        reconnection: false, // Отключаем встроенное переподключение, используем свое
-        reconnectionAttempts: 0,
-        reconnectionDelay: 0,
+        reconnection: true,
+        reconnectionAttempts: Infinity, // Бесконечные попытки переподключения
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 10000, // Максимальная задержка 10 секунд
+        randomizationFactor: 0.5,
       });
 
       this.socket.on("connect", () => {
@@ -278,12 +323,14 @@ export class OrdersWebSocketClient {
         const transportName = (this.socket as any)?.io?.engine?.transport?.name;
         console.log("🔗 Transport:", transportName);
 
-        // Запускаем heartbeat
-        this.startHeartbeat();
-
-        // Автоматически запрашиваем список заказов при подключении
-        this.socket?.emit("get_orders");
-        console.log("📋 Запрашиваем список заказов...");
+        this.idStore = this.getIdStore();
+        if (this.idStore) {
+          // Автоматически запрашиваем список заказов при подключении
+          this.socket?.emit("get_orders", this.idStore);
+          console.log("📋 Запрашиваем список заказов...");
+        } else {
+          console.error("❌ Не удалось получить получить данные о заказах");
+        }
 
         resolve();
       });
@@ -291,12 +338,6 @@ export class OrdersWebSocketClient {
       // Обработчик подтверждения подключения от сервера
       this.socket.on("connection_confirmed", (data) => {
         console.log("🔗 Подтверждение подключения от сервера:", data);
-      });
-
-      // Обработчик pong для heartbeat
-      this.socket.on("pong", () => {
-        this.lastHeartbeat = Date.now();
-        console.log("💓 Pong получен");
       });
 
       this.socket.on("connect_error", (error) => {
@@ -331,7 +372,12 @@ export class OrdersWebSocketClient {
         console.log("❌ ===== ОТКЛЮЧЕНИЕ =====");
         console.log("❌ Причина:", reason);
         console.log("❌ ===== КОНЕЦ ОТКЛЮЧЕНИЯ =====");
-        this.handleDisconnection();
+
+        this.isConnected = false;
+
+        if (!this.isManualDisconnect) {
+          this.handleDisconnection();
+        }
       });
 
       // Обработчик ошибок WebSocket
@@ -359,7 +405,6 @@ export class OrdersWebSocketClient {
 
   disconnect(): void {
     this.isManualDisconnect = true;
-    this.stopHeartbeat();
     this.resetReconnectAttempts();
 
     if (this.socket) {
@@ -377,19 +422,25 @@ export class OrdersWebSocketClient {
   }
 
   getOrders(): void {
-    this.socket?.emit("get_orders");
+    this.socket?.emit("get_orders", this.idStore);
   }
 
   onNewOrder(callback: (order: unknown) => void): void {
     if (this.socket) {
-      this.socket.on("new_order", (order: unknown) => {
-        try {
-          console.log("🧾 Получен заказ (new_order):", order);
-        } catch {}
-        // Проиграть звук с fallback
-        void this.playNewOrderSound();
-        callback(order);
-      });
+      this.idStore = this.getIdStore();
+
+      if (this.idStore) {
+        this.socket.on(`new_order_${this.idStore}`, (order: unknown) => {
+          try {
+            console.log("🧾 Получен заказ (new_order):", order);
+          } catch {}
+          // Проиграть звук с fallback
+          void this.playNewOrderSound();
+          callback(order);
+        });
+      } else {
+        console.error("❌ Не удалось получить получить данные о заказах");
+      }
     }
   }
 
@@ -408,7 +459,7 @@ export class OrdersWebSocketClient {
 
   onOrdersList(callback: (orders: unknown[]) => void): void {
     if (this.socket) {
-      this.socket.on("orders_list", (orders: unknown[]) => {
+      this.socket.on(`orders_list_${this.idStore}`, (orders: unknown[]) => {
         try {
           const count = Array.isArray(orders) ? orders.length : 0;
           console.log(
@@ -455,13 +506,11 @@ export class OrdersWebSocketClient {
   getConnectionStats(): {
     isConnected: boolean;
     reconnectAttempts: number;
-    lastHeartbeat: number;
     isManualDisconnect: boolean;
   } {
     return {
       isConnected: this.isConnected,
       reconnectAttempts: this.reconnectAttempts,
-      lastHeartbeat: this.lastHeartbeat,
       isManualDisconnect: this.isManualDisconnect,
     };
   }

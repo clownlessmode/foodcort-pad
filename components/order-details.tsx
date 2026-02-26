@@ -89,7 +89,7 @@ export function OrderDetails({
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <h1 className="text-xl md:text-2xl font-bold text-foreground">
-              Заказ {order.number}
+              Заказ {order.dailyId}
             </h1>
           </div>
           <Badge

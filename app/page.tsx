@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { OrdersList } from "@/components/orders-list";
 import { OrderDetails } from "@/components/order-details";
 import { OrdersWebSocketClient } from "@/lib/websocket-client";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 
 export type OrderStatus = "new" | "completed" | "cancelled" | "delivered";
 
@@ -17,6 +18,7 @@ export type OrderItem = {
 
 export type Order = {
   id: string;
+  dailyId: string;
   number: string;
   items: OrderItem[];
   status: OrderStatus;
@@ -34,6 +36,7 @@ export default function KitchenApp() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const wsRef = useRef<OrdersWebSocketClient | null>(null);
+  const terminalData = useLocalStorage("terminal");
 
   const updateOrderStatus = (orderId: string, status: OrderStatus) => {
     // Emit to server
@@ -56,10 +59,23 @@ export default function KitchenApp() {
 
   // Temporary websocket hook-in: just log orders/events to console
   useEffect(() => {
+    if (!terminalData) {
+      console.log("⏳ Ожидание данных терминала для подключения...");
+      return;
+    }
+
+    if (wsRef.current) {
+      wsRef.current.disconnect();
+      wsRef.current = null;
+    }
+
     const client = new OrdersWebSocketClient();
+    wsRef.current = client;
 
     type ServerOrder = {
       id?: string | number;
+      daily_id?: string | number;
+      dailyId?: string | number;
       orderId?: string | number;
       id_store?: string | number;
       idStore?: string | number;
@@ -119,6 +135,7 @@ export default function KitchenApp() {
 
     const mapServerOrderToLocal = (src: ServerOrder): Order => {
       const idValue = src.id ?? src.orderId;
+      const dailyIdValue = src.daily_id ?? src.dailyId;
       const createdAtIso = src.create_at || src.created_at || src.createdAt;
       const updatedAtIso = src.updated_at || src.updatedAt;
       const rawProducts = src.products;
@@ -148,9 +165,9 @@ export default function KitchenApp() {
                 : `Товар ${index + 1}`;
             const quantity = Number(
               (anyP["quantity"] as number) ??
-                (anyP["qty"] as number) ??
-                (anyP["count"] as number) ??
-                1
+              (anyP["qty"] as number) ??
+              (anyP["count"] as number) ??
+              1
             );
             // Map include -> addons and merge exclude/comment -> comment
             let addons: string[] | undefined;
@@ -166,8 +183,8 @@ export default function KitchenApp() {
                     "";
                   const incCount = Number(
                     (incAny["count"] as number) ??
-                      (incAny["quantity"] as number) ??
-                      1
+                    (incAny["quantity"] as number) ??
+                    1
                   );
                   if (!incName) return "";
                   return incCount > 1 ? `${incName} x${incCount}` : incName;
@@ -192,7 +209,7 @@ export default function KitchenApp() {
             return {
               id: String(
                 (anyP["id"] as string | number) ??
-                  `${String(idValue ?? "unknown")}-${index}`
+                `${String(idValue ?? "unknown")}-${index}`
               ),
               name,
               quantity,
@@ -205,6 +222,7 @@ export default function KitchenApp() {
 
       const mapped: Order = {
         id: String(idValue ?? ""),
+        dailyId: String(dailyIdValue ?? ""),
         number: String(idValue ?? ""),
         items,
         status: (src.status as OrderStatus) || "new",
@@ -239,17 +257,19 @@ export default function KitchenApp() {
         wsRef.current = client;
 
         // Разблокируем звук при первом пользовательском взаимодействии
-        const unlock = async () => {
+        const unlock = async (e: Event) => {
           try {
             await wsRef.current?.unlockAudio?.();
-          } catch {}
+          } catch { }
           window.removeEventListener("pointerdown", unlock);
           window.removeEventListener("keydown", unlock);
           window.removeEventListener("touchstart", unlock);
+          window.removeEventListener("click", unlock);
         };
         window.addEventListener("pointerdown", unlock, { once: true });
         window.addEventListener("keydown", unlock, { once: true });
         window.addEventListener("touchstart", unlock, { once: true });
+        window.addEventListener("click", unlock, { once: true });
 
         client.onConnectionConfirmed((data) => {
           console.log("🔗 connection_confirmed:", data);
@@ -291,10 +311,10 @@ export default function KitchenApp() {
             prev.map((o) =>
               o.id === String(update.orderId)
                 ? {
-                    ...o,
-                    status: update.status as OrderStatus,
-                    updatedAt: new Date(),
-                  }
+                  ...o,
+                  status: update.status as OrderStatus,
+                  updatedAt: new Date(),
+                }
                 : o
             )
           );
@@ -308,140 +328,17 @@ export default function KitchenApp() {
       client.disconnect();
       wsRef.current = null;
     };
-  }, []);
+  }, [terminalData]);
 
   if (selectedOrder) {
     return (
-      <>
-        <OrderDetails
-          order={selectedOrder}
-          onBack={() => setSelectedOrder(null)}
-          onUpdateStatus={updateOrderStatus}
-        />
-        <TestSoundButton wsRef={wsRef} />
-      </>
+      <OrderDetails
+        order={selectedOrder}
+        onBack={() => setSelectedOrder(null)}
+        onUpdateStatus={updateOrderStatus}
+      />
     );
   }
 
-  return (
-    <>
-      <OrdersList orders={orders} onSelectOrder={setSelectedOrder} />
-      <TestSoundButton wsRef={wsRef} />
-    </>
-  );
-}
-
-// Вспомогательная тестовая кнопка для воспроизведения звука
-function TestSoundButton({
-  wsRef,
-}: {
-  wsRef: React.RefObject<OrdersWebSocketClient | null>;
-}) {
-  const [status, setStatus] = useState<string>("");
-
-  const playBeepFallback = async () => {
-    try {
-      const Ctx: typeof AudioContext | undefined =
-        (window as any).AudioContext || (window as any).webkitAudioContext;
-      if (!Ctx) throw new Error("WebAudio недоступен");
-      const ctx = new Ctx();
-      await ctx.resume();
-
-      // Создаем более громкий и заметный звук
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = 880;
-
-      // Увеличиваем громкость fallback звука
-      gain.gain.value = 0.1; // Начальная громкость выше
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      const now = ctx.currentTime;
-      const duration = 0.5; // Увеличиваем длительность
-
-      // Более заметный звук с резким началом и плавным затуханием
-      gain.gain.setValueAtTime(0.1, now);
-      gain.gain.exponentialRampToValueAtTime(0.8, now + 0.05); // Максимальная громкость
-      gain.gain.exponentialRampToValueAtTime(0.1, now + duration);
-
-      osc.start(now);
-      osc.stop(now + duration);
-
-      console.log("🔊 Fallback звук воспроизведен (громкий)");
-      return true;
-    } catch (e) {
-      console.warn("WebAudio fallback error:", e);
-      return false;
-    }
-  };
-
-  const onClick = async () => {
-    setStatus("Тест начат…");
-
-    try {
-      // 1) Разблокировка аудио
-      setStatus("Разблокировка аудио…");
-      await wsRef.current?.unlockAudio?.();
-
-      // 2) Используем тот же механизм, что и WebSocket клиент
-      setStatus("Проигрывание звука…");
-      const success = await wsRef.current?.playNewOrderSound?.();
-
-      if (success) {
-        setStatus("✅ Звук воспроизведен успешно");
-        console.log("🔊 Тестовый звук воспроизведен через WebSocket клиент");
-      } else {
-        // 3) Fallback только если основной звук не сработал
-        setStatus("Fallback звук…");
-        const fallbackSuccess = await playBeepFallback();
-        setStatus(
-          fallbackSuccess
-            ? "✅ Fallback звук воспроизведен"
-            : "❌ Ошибка воспроизведения"
-        );
-      }
-    } catch (e: any) {
-      console.warn("Ошибка тестового звука:", e);
-
-      // 4) Последний fallback на WebAudio
-      try {
-        setStatus("Последний fallback…");
-        const fallbackSuccess = await playBeepFallback();
-        setStatus(
-          fallbackSuccess
-            ? "✅ Fallback звук воспроизведен"
-            : "❌ Все методы не сработали"
-        );
-      } catch (fallbackError) {
-        setStatus(`❌ Ошибка: ${e?.message || e}`);
-      }
-    }
-  };
-
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        position: "fixed",
-        bottom: 16,
-        left: 16,
-        zIndex: 9999,
-        padding: "8px 12px",
-        borderRadius: 8,
-        border: "1px solid var(--border)",
-        background: "var(--background)",
-        color: "var(--foreground)",
-        boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-        touchAction: "manipulation",
-        fontSize: 14,
-      }}
-      aria-live="polite"
-      aria-label="Тестовый звук"
-      title="Тестовый звук"
-    >
-      ▶︎ Тест звука{status ? ` — ${status}` : ""}
-    </button>
-  );
+  return <OrdersList orders={orders} onSelectOrder={setSelectedOrder} />;
 }
