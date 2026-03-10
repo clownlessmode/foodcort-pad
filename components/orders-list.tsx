@@ -64,19 +64,7 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
   const [activeTab, setActiveTab] = useState<string>("settings");
   const terminalDataStr = useLocalStorage("terminal");
 
-  const isToday = (date: Date) => {
-    const d = date;
-    const now = new Date();
-    return (
-      d.getFullYear() === now.getFullYear() &&
-      d.getMonth() === now.getMonth() &&
-      d.getDate() === now.getDate()
-    );
-  };
-
-  const todaysOrders = orders.filter((o) =>
-    isToday((o.updatedAt ?? o.createdAt) as Date)
-  );
+  const todaysOrders = orders;
   const newOrders = todaysOrders.filter((order) => order.status === "new");
   const completedOrders = todaysOrders.filter(
     (order) => order.status === "completed"
