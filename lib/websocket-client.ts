@@ -116,13 +116,24 @@ export class OrdersWebSocketClient {
     if (typeof document === "undefined") return;
 
     document.addEventListener("visibilitychange", () => {
-      if (
-        document.visibilityState === "visible" &&
-        !this.isConnected &&
-        !this.isManualDisconnect
-      ) {
-        console.log("👁️ Страница стала видимой, пытаемся переподключиться...");
-        this.connect();
+      if (document.visibilityState === "visible" && !this.isManualDisconnect) {
+        console.log("👁️ Страница стала видимой, проверяем соединение...");
+        
+        // Если сокет физически отключен, но мы думаем, что подключены
+        if (this.socket && !this.socket.connected) {
+          console.log("🔄 Сокет разорван, переподключаемся...");
+          this.forceReconnect();
+        } 
+        // Если вообще нет сокета или мы знаем, что отключены
+        else if (!this.isConnected || !this.socket) {
+          console.log("🔄 Нет подключения, подключаемся...");
+          this.connect();
+        } else {
+          // Если сокет жив, на всякий случай запрашиваем актуальный список заказов
+          // так как за время сна могли прийти новые заказы, а события потеряться
+          console.log("🔄 Сокет жив, запрашиваем актуальный список заказов...");
+          this.getOrders();
+        }
       }
     });
   }
