@@ -114,9 +114,6 @@ export function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
       const terminalDataParsed = JSON.parse(terminalDataStr);
       if (terminalDataParsed.code && terminalDataParsed.idStore) {
         setConfigured(true);
-        if (terminalDataParsed.tvCode) {
-          setActiveTab("new");
-        }
       } else {
         setConfigured(false);
         setActiveTab("settings");
